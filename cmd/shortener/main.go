@@ -6,15 +6,15 @@ import (
 	"strings"
 )
 
-func createShortUrl(url string) string {
+func createShortURL(url string) string {
 	return url
 }
 
-func getUrl(id string) (string, error) {
+func getURL(id string) (string, error) {
 	return id, nil
 }
 
-func actionCreateUrl(w http.ResponseWriter, r *http.Request) {
+func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 
@@ -30,11 +30,11 @@ func actionCreateUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newUrl := createShortUrl(url)
+	newURL := createShortURL(url)
 
 	w.Header().Set("Content-type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(newUrl))
+	w.Write([]byte(newURL))
 
 }
 
@@ -46,14 +46,14 @@ func actionRedirect(w http.ResponseWriter, r *http.Request) {
 
 	id := strings.TrimPrefix(r.URL.Path, "/")
 
-	newUrl, err := getUrl(id)
+	newURL, err := getURL(id)
 
 	if err != nil {
 		actionError(w, "Не нашел ссылку по указанному id")
 		return
 	}
 
-	http.Redirect(w, r, newUrl, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, newURL, http.StatusTemporaryRedirect)
 }
 
 func actionError(w http.ResponseWriter, e string) {
@@ -66,7 +66,7 @@ func mainEndPoint(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 
 	case http.MethodPost:
-		actionCreateUrl(w, r)
+		actionCreateURL(w, r)
 	case http.MethodGet:
 		actionRedirect(w, r)
 	default:
