@@ -62,7 +62,7 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(newURL))
+	w.Write([]byte("http://localhost:8080/" + newURL))
 
 }
 
