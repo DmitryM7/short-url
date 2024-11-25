@@ -1,18 +1,64 @@
 package main
 
-import "net/http"
+import (
+	"io"
+	"net/http"
+	"strings"
+)
 
-func createShortUrl(w http.ResponseWriter, r *http.Request) {
+func createShortUrl(url string) string {
+	return url
+}
+
+func getUrl(id string) (string, error) {
+	return id, nil
+}
+
+func actionCreateUrl(w http.ResponseWriter, r *http.Request) {
+
+	body, err := io.ReadAll(r.Body)
+
+	if err != nil {
+		actionError(w, "Ошибка чтения запроса.")
+		return
+	}
+
+	url := string(body)
+
+	if url == "" {
+		actionError(w, "Обязательный пар-р пустой.")
+		return
+	}
+
+	newUrl := createShortUrl(url)
 
 	w.Header().Set("Content-type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(newUrl))
 
 }
 
-func redirectByAlias(w http.ResponseWriter, r *http.Request) {
+func actionRedirect(w http.ResponseWriter, r *http.Request) {
 
-	http.Redirect(w, r, "http://www.ya.ru", http.StatusTemporaryRedirect)
+	if err := r.ParseForm(); err != nil {
+		actionError(w, "Не смог получить обязательные параметры запроса")
+	}
 
+	id := strings.TrimPrefix(r.URL.Path, "/")
+
+	newUrl, err := getUrl(id)
+
+	if err != nil {
+		actionError(w, "Не нашел ссылку по указанному id")
+		return
+	}
+
+	http.Redirect(w, r, newUrl, http.StatusTemporaryRedirect)
+}
+
+func actionError(w http.ResponseWriter, e string) {
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte(e))
 }
 
 func mainEndPoint(w http.ResponseWriter, r *http.Request) {
@@ -20,16 +66,12 @@ func mainEndPoint(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 
 	case http.MethodPost:
-		createShortUrl(w, r)
-
+		actionCreateUrl(w, r)
 	case http.MethodGet:
-		redirectByAlias(w, r)
-
+		actionRedirect(w, r)
 	default:
-		w.WriteHeader(http.StatusBadRequest)
-
+		actionError(w, "Отсутствует необходимый end-point.")
 	}
-
 }
 
 func main() {
