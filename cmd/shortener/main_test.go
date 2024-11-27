@@ -136,6 +136,7 @@ func TestActionRedirect(t *testing.T) {
 			actionCreateURL(w, r)
 			res := w.Result()
 			assert.Equal(t, tt.want.statusCode, res.StatusCode)
+			defer res.Body.Close()
 		})
 	}
 }
