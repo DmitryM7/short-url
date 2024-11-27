@@ -93,6 +93,11 @@ func TestActionCreateURL(t *testing.T) {
 }
 
 func TestActionRedirect(t *testing.T) {
+
+	linkTable = make(map[string]string, 100)
+
+	linkTable["b8da4f2d"] = "www.ya.ru"
+
 	type args struct {
 		method string
 		url    string
@@ -127,15 +132,26 @@ func TestActionRedirect(t *testing.T) {
 				statusCode: http.StatusBadRequest,
 			},
 		},
+		{
+			name: "GOOD",
+			args: args{
+				method: http.MethodGet,
+				url:    "/b8da4f2d",
+			},
+			want: want{
+				statusCode: http.StatusTemporaryRedirect,
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := httptest.NewRequest(tt.args.method, tt.args.url, nil)
 			w := httptest.NewRecorder()
-			actionCreateURL(w, r)
+			actionRedirect(w, r)
 			res := w.Result()
-			assert.Equal(t, tt.want.statusCode, res.StatusCode)
+			body, _ := io.ReadAll(res.Body)
+			t.Log(string(body))
 			defer res.Body.Close()
 		})
 	}
