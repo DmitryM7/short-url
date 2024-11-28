@@ -20,6 +20,7 @@ func init() {
 
 func TestMain(m *testing.M) {
 	flag.Parse()
+	parseEnv()
 	os.Exit(m.Run())
 }
 
