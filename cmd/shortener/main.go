@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -64,7 +65,7 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("http://localhost:8080/" + newURL))
+	w.Write([]byte("http://" + retAdd + "/" + newURL))
 
 }
 
@@ -104,6 +105,9 @@ func mainEndPoint(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 
+	parseFlags()
+	flag.Parse()
+
 	linkTable = make(map[string]string, 100)
 
 	r := chi.NewRouter()
@@ -113,7 +117,7 @@ func main() {
 		r.Get("/{id}", actionRedirect)
 	})
 
-	err := http.ListenAndServe(`:8080`, r)
+	err := http.ListenAndServe(bndAdd, r)
 
 	if err != nil {
 		panic(err)
