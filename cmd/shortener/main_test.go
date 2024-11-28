@@ -4,12 +4,24 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
+
+	"flag"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	parseFlags()
+}
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	os.Exit(m.Run())
+}
 
 func TestActionCreateURL(t *testing.T) {
 

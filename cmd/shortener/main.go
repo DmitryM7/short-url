@@ -88,29 +88,18 @@ func actionRedirect(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, newURL, http.StatusTemporaryRedirect)
 }
 
-func mainEndPoint(w http.ResponseWriter, r *http.Request) {
-
-	switch r.Method {
-
-	case http.MethodPost:
-		actionCreateURL(w, r)
-
-	case http.MethodGet:
-		actionRedirect(w, r)
-
-	default:
-		actionError(w, "Отсутствует необходимый end-point.")
-	}
-}
-
 func main() {
 
 	parseFlags()
+
 	flag.Parse()
 
 	linkTable = make(map[string]string, 100)
 
 	r := chi.NewRouter()
+
+	fmt.Println("Bind address:" + bndAdd)
+	fmt.Println("Return addres:" + retAdd)
 
 	r.Route("/", func(r chi.Router) {
 		r.Post("/", actionCreateURL)
