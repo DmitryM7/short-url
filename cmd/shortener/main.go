@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/go-chi/chi/v5"
 )
 
 var linkTable map[string]string
@@ -104,10 +106,15 @@ func main() {
 
 	linkTable = make(map[string]string, 100)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", mainEndPoint)
+	r := chi.NewRouter()
 
-	err := http.ListenAndServe(`:8080`, mux)
+	r.Route("/", func(r chi.Router) {
+		r.Post("/", actionCreateURL)
+		r.Get("/", actionRedirect)
+
+	})
+
+	err := http.ListenAndServe(`:8080`, r)
 
 	if err != nil {
 		panic(err)
