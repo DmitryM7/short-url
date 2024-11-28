@@ -65,7 +65,7 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("http://" + retAdd + "/" + newURL))
+	w.Write([]byte(retAdd + "/" + newURL))
 
 }
 
