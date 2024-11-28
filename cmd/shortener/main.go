@@ -91,8 +91,8 @@ func actionRedirect(w http.ResponseWriter, r *http.Request) {
 func main() {
 
 	parseFlags()
-
 	flag.Parse()
+	parseEnv()
 
 	linkTable = make(map[string]string, 100)
 
