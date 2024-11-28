@@ -110,8 +110,7 @@ func main() {
 
 	r.Route("/", func(r chi.Router) {
 		r.Post("/", actionCreateURL)
-		r.Get("/", actionRedirect)
-
+		r.Get("/{id}", actionRedirect)
 	})
 
 	err := http.ListenAndServe(`:8080`, r)
