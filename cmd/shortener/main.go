@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -99,8 +99,8 @@ func main() {
 
 	r := chi.NewRouter()
 
-	log.Println("Bind address:" + bndAdd)
-	log.Println("Return addres:" + retAdd)
+	slog.Info("Bind address:" + bndAdd)
+	slog.Info("Return addres:" + retAdd)
 
 	r.Route("/", func(r chi.Router) {
 		r.Post("/", actionCreateURL)
