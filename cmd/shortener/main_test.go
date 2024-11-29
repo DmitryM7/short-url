@@ -2,6 +2,7 @@ package main
 
 import (
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -25,6 +26,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestActionCreateURL(t *testing.T) {
+
+	slog.Info("Запустился TestActionCreateUrl")
 
 	linkTable = make(map[string]string, 100)
 
