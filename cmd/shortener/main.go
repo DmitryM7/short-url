@@ -6,10 +6,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
-<<<<<<< HEAD
 	"log/slog"
-=======
->>>>>>> parent of b4a61fb (Добавил логирование.)
 	"net/http"
 	"strings"
 
@@ -102,13 +99,9 @@ func main() {
 
 	r := chi.NewRouter()
 
-<<<<<<< HEAD
+
 	slog.Info("Bind address:" + bndAdd)
 	slog.Info("Return addres:" + retAdd)
-=======
-	fmt.Println("Bind address:" + bndAdd)
-	fmt.Println("Return addres:" + retAdd)
->>>>>>> parent of b4a61fb (Добавил логирование.)
 
 	r.Route("/", func(r chi.Router) {
 		r.Post("/", actionCreateURL)
