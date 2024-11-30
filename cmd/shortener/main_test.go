@@ -29,7 +29,7 @@ func TestActionCreateURL(t *testing.T) {
 
 	slog.Info("Запустился TestActionCreateUrl")
 
-	linkTable = make(map[string]string, 100)
+	repo = NewLinkRepo()
 
 	type args struct {
 		method string
@@ -110,9 +110,9 @@ func TestActionCreateURL(t *testing.T) {
 
 func TestActionRedirect(t *testing.T) {
 
-	linkTable = make(map[string]string, 100)
+	repo = NewLinkRepo()
 
-	linkTable["b8da4f2d"] = "www.ya.ru"
+	repo.Create("b8da4f2d", "www.ya.ru")
 
 	type args struct {
 		method string

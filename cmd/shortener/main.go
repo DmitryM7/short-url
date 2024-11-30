@@ -13,7 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-var linkTable map[string]string
+var repo linkRepo
 
 func createShortURL(url string) (string, error) {
 	var shortURL string
@@ -27,11 +27,11 @@ func createShortURL(url string) (string, error) {
 
 func getURL(id string) (string, error) {
 
-	if url, ok := linkTable[id]; ok {
+	if url, err := repo.Get(id); err == nil {
 		return url, nil
 	}
 
-	return "", errors.New("НЕТ ССЫЛКИ ДЛЯ ID")
+	return "", errors.New("NO REQUIRED PARAM ID")
 
 }
 
@@ -45,24 +45,24 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 
 	if err != nil {
-		actionError(w, "Ошибка чтения запроса.")
+		actionError(w, "Error read query request body")
 		return
 	}
 
 	url := string(body)
 
 	if url == "" {
-		actionError(w, "Обязательный пар-р пустой.")
+		actionError(w, "Body was send, but empty")
 		return
 	}
 
 	newURL, err := createShortURL(url)
 
 	if err != nil {
-		actionError(w, "Не удалось создать короткую ссылку")
+		actionError(w, "Can't create short url.")
 	}
 
-	linkTable[newURL] = url
+	_ = repo.Create(newURL, url)
 
 	w.Header().Set("Content-type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
@@ -75,14 +75,14 @@ func actionRedirect(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/")
 
 	if id == "" {
-		actionError(w, "Отсутствует id короткой ссылки")
+		actionError(w, "No required param 'ID' or ID is empty")
 		return
 	}
 
 	newURL, err := getURL(id)
 
 	if err != nil {
-		actionError(w, "Не нашел ссылку по указанному id")
+		actionError(w, "Can't find short url by ID")
 		return
 	}
 
@@ -95,10 +95,9 @@ func main() {
 	flag.Parse()
 	parseEnv()
 
-	linkTable = make(map[string]string, 100)
+	repo = NewLinkRepo()
 
 	r := chi.NewRouter()
-
 
 	slog.Info("Bind address:" + bndAdd)
 	slog.Info("Return addres:" + retAdd)
