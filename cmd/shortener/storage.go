@@ -2,14 +2,14 @@ package main
 
 import "fmt"
 
-const REPO_LENGTH int64 = 100
+const repoLength int64 = 100
 
 type linkRepo struct {
 	repo map[string]string
 }
 
 func NewLinkRepo() linkRepo {
-	return linkRepo{repo: make(map[string]string, REPO_LENGTH)}
+	return linkRepo{repo: make(map[string]string, repoLength)}
 }
 
 func (r *linkRepo) Create(h, l string) {
