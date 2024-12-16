@@ -26,7 +26,6 @@ func TestMain(m *testing.M) {
 }
 
 func TestActionCreateURL(t *testing.T) {
-
 	slog.Info("Запустился TestActionCreateUrl")
 
 	repo = NewLinkRepo()
@@ -81,7 +80,6 @@ func TestActionCreateURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			var r *http.Request
 
 			if tt.args.body != "" {
@@ -109,7 +107,6 @@ func TestActionCreateURL(t *testing.T) {
 }
 
 func TestActionRedirect(t *testing.T) {
-
 	repo = NewLinkRepo()
 
 	repo.Create("b8da4f2d", "www.ya.ru")

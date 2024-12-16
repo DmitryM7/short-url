@@ -16,13 +16,11 @@ func parseFlags() {
 }
 
 func parseEnv() {
-
-	if env := os.Getenv("SERVER_ADDRES"); env != "" {
+	if env := os.Getenv("SERVER_ADDRESS"); env != "" {
 		bndAdd = env
 	}
 
 	if env := os.Getenv("BASE_URL"); env != "" {
 		retAdd = env
 	}
-
 }
