@@ -161,7 +161,7 @@ func main() {
 		panic("CAN'T INIT ZAP LOGGER")
 	}
 
-	defer logger.Sync()
+	defer logger.Sync() //nolint:errcheck // unnessesary error checking
 
 	sugar = logger.Sugar()
 
