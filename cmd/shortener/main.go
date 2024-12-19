@@ -1,10 +1,42 @@
 package main
 
+/**********************************************************************************
+ * Задание по треку «Сервис сокращения URL»                                       *
+ * Добавьте в код сервера новый эндпоинт POST /api/shorten,                       *
+ * который будет принимать в теле запроса JSON-объект                             *
+ * {"url":"<some_url>"} и возвращать в ответ объект {"result":"<short_url>"}.     *
+ * Запрос может иметь такой вид:                                                  *
+ *                                                                                *
+ *   POST http://localhost:8080/api/shorten HTTP/1.1                              *
+ *   Host: localhost:8080                                                         *
+ *                                                                                *
+ *	Content-Type: application/json                                                *
+ *    {                                                                           *
+ *       "url": "https://practicum.yandex.ru"                                     *
+ *    }                                                                           *
+ *                                                                                *
+ *  Ответ может быть таким:                                                       *
+ *                                                                                *
+ *   HTTP/1.1 201 OK                                                              *
+ *   Content-Type: application/json                                               *
+ *                                                                                *
+ *	 Content-Length: 30                                                           *
+ *     {                                                                          *
+ *         "result": "http://localhost:8080/EwHXdJfB"                             *
+ *      }                                                                         *
+ *                                                                                *
+ *	   Не забудьте добавить тесты на новый эндпоинт, как и на предыдущие.         *
+ *      При реализации задействуйте одну из распространённых библиотек:           *
+ *      encoding/json,                                                            *
+ *      github.com/mailru/easyjson,                                               *
+ *      github.com/pquerna/ffjson,                                                *
+ *      github.com/labstack/echo.                                                 *
+ **********************************************************************************/
+
 import (
+	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
-	"hash/crc32"
 	"io"
 	"log/slog"
 	"net/http"
@@ -31,6 +63,14 @@ type (
 		http.ResponseWriter
 		responseData *responseData
 	}
+
+	Request struct {
+		URL string `json:"url"`
+	}
+
+	Response struct {
+		Result string `json:"result"`
+	}
 )
 
 func (r *logResponseWriter) Write(b []byte) (int, error) {
@@ -44,16 +84,6 @@ func (r *logResponseWriter) WriteHeader(statusCode int) {
 	r.responseData.status = statusCode
 }
 
-func createShortURL(url string) string {
-	var shortURL string
-
-	checksum := crc32.Checksum([]byte(url), crc32.MakeTable(crc32.IEEE))
-
-	shortURL = fmt.Sprintf("%08x", checksum)
-
-	return shortURL
-}
-
 func getURL(id string) (string, error) {
 	if url, err := repo.Get(id); err == nil {
 		return url, nil
@@ -63,6 +93,7 @@ func getURL(id string) (string, error) {
 }
 
 func actionError(w http.ResponseWriter, e string) {
+	sugar.Infoln(e)
 	w.WriteHeader(http.StatusBadRequest)
 	_, err := w.Write([]byte(e))
 
@@ -72,6 +103,8 @@ func actionError(w http.ResponseWriter, e string) {
 }
 
 func actionCreateURL(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
 	body, err := io.ReadAll(r.Body)
 
 	if err != nil {
@@ -86,9 +119,7 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL := createShortURL(url)
-
-	repo.Create(newURL, url)
+	newURL := repo.CreateAndSave(url)
 
 	w.Header().Set("Content-type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
@@ -115,6 +146,50 @@ func actionRedirect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, newURL, http.StatusTemporaryRedirect)
+}
+func actionShorten(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
+
+	if err != nil {
+		actionError(w, "CAN'T READ BODY FROM REQUEST")
+		return
+	}
+
+	if string(body) == "" {
+		actionError(w, "EMPTY BODY")
+		return
+	}
+
+	request := Request{}
+	response := Response{}
+
+	err = json.Unmarshal(body, &request)
+
+	if err != nil {
+		actionError(w, "CAN'T UNMARSHAL JSON BODY.")
+		return
+	}
+
+	newURL := repo.CreateAndSave(request.URL)
+
+	response.Result = retAdd + "/" + newURL
+
+	w.Header().Set("Content-type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	res, err := json.Marshal(response)
+	if err != nil {
+		actionError(w, "CAN'T UNMARSHAL JSON RESULT.")
+		return
+	}
+
+	_, errRes := w.Write(res)
+
+	if errRes != nil {
+		actionError(w, "CAN'T WRITE RESULT BODY.")
+		return
+	}
 }
 
 func start(next http.Handler) http.Handler {
@@ -173,6 +248,7 @@ func main() {
 
 	r.Route("/", func(r chi.Router) {
 		r.Post("/", actionCreateURL)
+		r.Post("/api/shorten", actionShorten)
 		r.Get("/{id}", actionRedirect)
 	})
 	/*****************************************************************************************

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,10 +14,22 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
-func init() {
+func init() { //nolint: gochecknoinits //see chapter "Setting Up Test Data" in https://www.bytesizego.com/blog/init-function-golang#:~:text=Reasons%20to%20Avoid%20Using%20the%20init%20Function%20in%20Go&text=Since%20it%20runs%20automatically%2C%20any,state%20changes%20without%20explicit%20calls
+	var errLogger error
 	parseFlags()
+
+	logger, errLogger = zap.NewDevelopment()
+
+	if errLogger != nil {
+		panic("CAN'T INIT ZAP LOGGER")
+	}
+
+	defer logger.Sync() //nolint:errcheck // unnessesary error checking
+
+	sugar = logger.Sugar()
 }
 
 func TestMain(m *testing.M) {
@@ -35,6 +48,7 @@ func TestActionCreateURL(t *testing.T) {
 		url    string
 		body   string
 	}
+
 	type want struct {
 		statusCode int
 		body       string
@@ -166,6 +180,75 @@ func TestActionRedirect(t *testing.T) {
 			body, _ := io.ReadAll(res.Body)
 			t.Log(string(body))
 			defer res.Body.Close()
+		})
+	}
+}
+
+func TestActionShorten(t *testing.T) {
+	type (
+		Args struct {
+			URL  string
+			Body string
+		}
+		Want struct {
+			Response   string
+			StatusCode int
+		}
+		Tests struct {
+			Name string
+			Args Args
+			Want Want
+		}
+	)
+
+	tests := []Tests{
+		{
+			Name: "BAD_EMPTY_REQUEST",
+			Args: Args{
+				URL: "/api/shorten",
+			},
+			Want: Want{
+				StatusCode: 400,
+			},
+		},
+		{
+			Name: "GOOD",
+			Args: Args{
+				URL:  "/api/shorten",
+				Body: "{\"url\": \"https://practicum.yandex.ru\"} ",
+			},
+			Want: Want{
+				StatusCode: 201,
+				Response:   "{\"result\":\"http://localhost:8080/ba980180\"}",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.Name, func(t *testing.T) {
+			var r *http.Request
+			if tt.Args.Body != "" {
+				body := strings.NewReader(tt.Args.Body)
+				r = httptest.NewRequest(http.MethodPost, tt.Args.URL, body)
+			} else {
+				r = httptest.NewRequest(http.MethodPost, tt.Args.URL, nil)
+			}
+
+			w := httptest.NewRecorder()
+
+			actionShorten(w, r)
+			res := w.Result()
+			assert.Equal(t, tt.Want.StatusCode, res.StatusCode)
+
+			if tt.Want.Response != "" {
+				b, e := io.ReadAll(res.Body)
+				defer res.Body.Close()
+				require.NoError(t, e, "CAN'T READ BODY")
+				res := Response{}
+				e = json.Unmarshal(b, &res)
+				require.NoError(t, e, "CAN'T UNMARSHAL")
+				assert.Equal(t, tt.Want.Response, string(b))
+			}
 		})
 	}
 }

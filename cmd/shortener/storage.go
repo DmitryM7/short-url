@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"hash/crc32"
+)
 
 const repoLength int64 = 100
 
@@ -24,4 +27,16 @@ func (r *linkRepo) Get(h string) (string, error) {
 	}
 
 	return l, nil
+}
+
+func (r *linkRepo) CreateAndSave(url string) string {
+	var shortURL string
+
+	checksum := crc32.Checksum([]byte(url), crc32.MakeTable(crc32.IEEE))
+
+	shortURL = fmt.Sprintf("%08x", checksum)
+
+	r.Create(shortURL, url)
+
+	return shortURL
 }
