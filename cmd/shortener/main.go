@@ -45,7 +45,7 @@ type (
 )
 
 func (r *CustomResponseWriter) isContentTypeNeedZip() bool {
-	var needGZip bool = false
+	needGZip := false
 
 	headers := r.Header().Values("Content-type")
 
@@ -65,7 +65,6 @@ func (r *CustomResponseWriter) Write(b []byte) (int, error) {
 
 	if r.needGZip && r.isContentTypeNeedZip() {
 		gz, err = gzip.NewWriterLevel(r.ResponseWriter, gzip.BestSpeed)
-		defer gz.Close()
 
 		if err != nil {
 			size = 0
@@ -74,6 +73,7 @@ func (r *CustomResponseWriter) Write(b []byte) (int, error) {
 			sugar.Infoln("DO ZIPPING")
 			size, err = gz.Write(b)
 		}
+		defer gz.Close()
 	} else {
 		size, err = r.ResponseWriter.Write(b)
 	}
