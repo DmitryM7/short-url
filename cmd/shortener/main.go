@@ -50,7 +50,7 @@ func (r *CustomResponseWriter) isContentTypeNeedZip() bool {
 	headers := r.Header().Values("Content-type")
 
 	for _, header := range headers {
-		if header == "application/json" || header == "text/html" || header == "text/plain" {
+		if header == "application/json" || header == "text/html" {
 			needGZip = true
 		}
 	}
