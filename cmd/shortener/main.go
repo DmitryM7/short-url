@@ -1,42 +1,12 @@
 package main
 
-/**********************************************************************************
- * Задание по треку «Сервис сокращения URL»                                       *
- * Добавьте в код сервера новый эндпоинт POST /api/shorten,                       *
- * который будет принимать в теле запроса JSON-объект                             *
- * {"url":"<some_url>"} и возвращать в ответ объект {"result":"<short_url>"}.     *
- * Запрос может иметь такой вид:                                                  *
- *                                                                                *
- *   POST http://localhost:8080/api/shorten HTTP/1.1                              *
- *   Host: localhost:8080                                                         *
- *                                                                                *
- *	Content-Type: application/json                                                *
- *    {                                                                           *
- *       "url": "https://practicum.yandex.ru"                                     *
- *    }                                                                           *
- *                                                                                *
- *  Ответ может быть таким:                                                       *
- *                                                                                *
- *   HTTP/1.1 201 OK                                                              *
- *   Content-Type: application/json                                               *
- *                                                                                *
- *	 Content-Length: 30                                                           *
- *     {                                                                          *
- *         "result": "http://localhost:8080/EwHXdJfB"                             *
- *      }                                                                         *
- *                                                                                *
- *	   Не забудьте добавить тесты на новый эндпоинт, как и на предыдущие.         *
- *      При реализации задействуйте одну из распространённых библиотек:           *
- *      encoding/json,                                                            *
- *      github.com/mailru/easyjson,                                               *
- *      github.com/pquerna/ffjson,                                                *
- *      github.com/labstack/echo.                                                 *
- **********************************************************************************/
-
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -59,9 +29,10 @@ type (
 		size   int
 	}
 
-	logResponseWriter struct {
+	CustomResponseWriter struct {
 		http.ResponseWriter
 		responseData *responseData
+		needGZip     bool
 	}
 
 	Request struct {
@@ -73,13 +44,48 @@ type (
 	}
 )
 
-func (r *logResponseWriter) Write(b []byte) (int, error) {
-	size, err := r.ResponseWriter.Write(b)
+func (r *CustomResponseWriter) isContentTypeNeedZip() bool {
+	var needGZip bool = false
+
+	headers := r.Header().Values("Content-type")
+
+	for _, header := range headers {
+		if header == "application/json" || header == "text/html" || header == "text/plain" {
+			needGZip = true
+		}
+	}
+	return needGZip
+}
+func (r *CustomResponseWriter) Write(b []byte) (int, error) {
+	var (
+		size int
+		err  error
+		gz   *gzip.Writer
+	)
+
+	if r.needGZip && r.isContentTypeNeedZip() {
+		gz, err = gzip.NewWriterLevel(r.ResponseWriter, gzip.BestSpeed)
+		defer gz.Close()
+
+		if err != nil {
+			size = 0
+			err = fmt.Errorf("CANT CREATE GZIP")
+		} else {
+			sugar.Infoln("DO ZIPPING")
+			size, err = gz.Write(b)
+		}
+	} else {
+		size, err = r.ResponseWriter.Write(b)
+	}
+
 	r.responseData.size += size
 	return size, err
 }
 
-func (r *logResponseWriter) WriteHeader(statusCode int) {
+func (r *CustomResponseWriter) WriteHeader(statusCode int) {
+	if r.needGZip && r.isContentTypeNeedZip() {
+		r.Header().Set("Content-encoding", "gzip")
+	}
 	r.ResponseWriter.WriteHeader(statusCode)
 	r.responseData.status = statusCode
 }
@@ -103,9 +109,8 @@ func actionError(w http.ResponseWriter, e string) {
 }
 
 func actionCreateURL(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-
 	body, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
 
 	if err != nil {
 		actionError(w, "Error read query request body")
@@ -146,6 +151,33 @@ func actionRedirect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, newURL, http.StatusTemporaryRedirect)
+}
+
+func actionTest(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimPrefix(r.URL.Path, "/")
+
+	if id == "" {
+		actionError(w, "No required param 'ID' or ID is empty")
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
+	sugar.Infoln(string(body))
+
+	if err != nil {
+		actionError(w, "CAN'T READ BODY")
+		return
+	}
+
+	w.Header().Set("Content-type", "text/plain")
+	w.WriteHeader(http.StatusCreated)
+	_, errWrite := w.Write(body)
+
+	if errWrite != nil {
+		actionError(w, "CAN'T WRITE BODY")
+		return
+	}
 }
 func actionShorten(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
@@ -192,8 +224,20 @@ func actionShorten(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func start(next http.Handler) http.Handler {
+/****************************************************************************************
+ *                                                                                      *
+ * Задание по треку «Сервис сокращения URL»                                             *
+ * Добавьте поддержку gzip в ваш сервис. Научите его:                                   *
+ * Принимать запросы в сжатом формате (с HTTP-заголовком Content-Encoding).             *
+ * +Отдавать сжатый ответ клиенту, который поддерживает обработку сжатых ответов         *
+ * +(с HTTP-заголовком Accept-Encoding).                                                 *
+ * +Функция сжатия должна работать для контента с типами application/json и text/html.   *
+ * +Вспомните middleware из урока про HTTP-сервер, это может вам помочь.                 *
+ *                                                                                      *
+ ****************************************************************************************/
+func actionStart(next http.Handler) http.Handler {
 	f := func(w http.ResponseWriter, r *http.Request) {
+
 		begTime := time.Now()
 		uri := r.RequestURI
 		method := r.Method
@@ -203,9 +247,46 @@ func start(next http.Handler) http.Handler {
 			size:   0,
 		}
 
-		lw := logResponseWriter{
+		lw := CustomResponseWriter{
 			ResponseWriter: w,
 			responseData:   responseData,
+			needGZip:       false,
+		}
+
+		acceptEncodings := r.Header.Values("Accept-Encoding")
+
+		for _, encodingLine := range acceptEncodings {
+
+			acceptEncoding := strings.Split(encodingLine, ",")
+			for _, encoding := range acceptEncoding {
+				if encoding == "gzip" {
+					lw.needGZip = true
+					break
+				}
+			}
+		}
+
+		sugar.Infoln(r.Header.Get("Content-Encoding"))
+
+		if r.Header.Get("Content-Encoding") == "gzip" {
+
+			buf, err := io.ReadAll(r.Body) // handle the error
+
+			if err != nil {
+				actionError(w, "CAN'T CREATE NEW BUFFER")
+				return
+			}
+			readedBody := io.NopCloser(bytes.NewBuffer(buf))
+
+			gz, err := gzip.NewReader(readedBody)
+
+			if err != nil {
+				actionError(w, "CAN'T CREATE GZ READER")
+				return
+			}
+
+			r.Body = gz
+
 		}
 
 		next.ServeHTTP(&lw, r)
@@ -244,12 +325,14 @@ func main() {
 
 	r := chi.NewRouter()
 
-	r.Use(start)
+	r.Use(actionStart)
 
 	r.Route("/", func(r chi.Router) {
 		r.Post("/", actionCreateURL)
 		r.Post("/api/shorten", actionShorten)
 		r.Get("/{id}", actionRedirect)
+		r.Get("/tst", actionTest)
+		r.Post("/tst", actionTest)
 	})
 	/*****************************************************************************************
 	  Инкеремент №6

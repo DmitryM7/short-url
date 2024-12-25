@@ -97,8 +97,8 @@ func TestActionCreateURL(t *testing.T) {
 			var r *http.Request
 
 			if tt.args.body != "" {
-				reqBody := strings.NewReader(tt.args.body)
-				r = httptest.NewRequest(tt.args.method, tt.args.url, reqBody)
+				sugar.Infoln("with body")
+				r = httptest.NewRequest(tt.args.method, tt.args.url, strings.NewReader(tt.args.body))
 			} else {
 				r = httptest.NewRequest(tt.args.method, tt.args.url, nil)
 			}
