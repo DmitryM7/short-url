@@ -134,7 +134,7 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		sugar.Errorln("CANT WRITE DATA TO RESPONSE")
 	}
 
-	_, err = repo.Unload(filePath + "/" + "repo.json")
+	_, err = repo.Unload()
 
 	if err != nil {
 		sugar.Errorln("CANT SAVE REPO TO FILE")
@@ -211,7 +211,7 @@ func actionShorten(w http.ResponseWriter, r *http.Request) {
 
 	newURL := repo.CreateAndSave(request.URL)
 
-	_, err = repo.Unload(filePath + "/" + "repo.json")
+	_, err = repo.Unload()
 
 	if err != nil {
 		sugar.Errorln("CANT SAVE REPO TO FILE")
@@ -334,7 +334,9 @@ func main() {
 
 	repo = NewLinkRepo()
 
-	err := repo.Load(filePath + "/" + "repo.json")
+	repo.SavePath = filePath + "/" + "repo.json"
+
+	err := repo.Load()
 
 	if err != nil {
 		sugar.Infoln("CAN'T LOAD STORAGE FROM FILE")

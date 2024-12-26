@@ -14,7 +14,8 @@ const (
 )
 
 type linkRepo struct {
-	repo map[string]string
+	repo     map[string]string
+	SavePath string
 }
 
 func NewLinkRepo() linkRepo {
@@ -35,6 +36,10 @@ func (r *linkRepo) Get(h string) (string, error) {
 	return l, nil
 }
 
+func (r *linkRepo) SetSavePath(p string) {
+	r.SavePath = p
+}
+
 func (r *linkRepo) CreateAndSave(url string) string {
 	var shortURL string
 
@@ -47,16 +52,17 @@ func (r *linkRepo) CreateAndSave(url string) string {
 	return shortURL
 }
 
-func (r *linkRepo) Unload(fp string) (int, error) {
+func (r *linkRepo) Unload() (int, error) {
 	j, err := json.Marshal(r.repo)
 
 	if err != nil {
 		return 0, err
 	}
 
-	file, err := os.OpenFile(fp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, defFilePerm)
+	file, err := os.OpenFile(r.SavePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, defFilePerm)
 
 	if err != nil {
+		sugar.Infoln("FIND PATH:" + r.SavePath)
 		return 0, err
 	}
 
@@ -64,11 +70,11 @@ func (r *linkRepo) Unload(fp string) (int, error) {
 
 	return file.Write(j)
 }
-func (r *linkRepo) Load(fp string) error {
-	file, err := os.OpenFile(fp, os.O_RDONLY|os.O_CREATE, defFilePerm)
+func (r *linkRepo) Load() error {
+	file, err := os.OpenFile(r.SavePath, os.O_RDONLY|os.O_CREATE, defFilePerm)
 
 	if err != nil {
-		sugar.Errorln("CANT OPEN STORAGE FILE")
+		sugar.Errorln("CANT OPEN STORAGE FILE:" + r.SavePath)
 		return err
 	}
 
