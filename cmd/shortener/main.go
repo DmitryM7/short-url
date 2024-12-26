@@ -131,7 +131,13 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	_, errWrite := w.Write([]byte(retAdd + "/" + newURL))
 
 	if errWrite != nil {
-		slog.Error("CANT WRITE DATA TO RESPONSE")
+		sugar.Errorln("CANT WRITE DATA TO RESPONSE")
+	}
+
+	_, err = repo.Unload(filePath + "/" + "repo.json")
+
+	if err != nil {
+		sugar.Errorln("CANT SAVE REPO TO FILE")
 	}
 }
 
@@ -224,20 +230,8 @@ func actionShorten(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-/****************************************************************************************
- *                                                                                      *
- * Задание по треку «Сервис сокращения URL»                                             *
- * Добавьте поддержку gzip в ваш сервис. Научите его:                                   *
- * Принимать запросы в сжатом формате (с HTTP-заголовком Content-Encoding).             *
- * +Отдавать сжатый ответ клиенту, который поддерживает обработку сжатых ответов         *
- * +(с HTTP-заголовком Accept-Encoding).                                                 *
- * +Функция сжатия должна работать для контента с типами application/json и text/html.   *
- * +Вспомните middleware из урока про HTTP-сервер, это может вам помочь.                 *
- *                                                                                      *
- ****************************************************************************************/
 func actionStart(next http.Handler) http.Handler {
 	f := func(w http.ResponseWriter, r *http.Request) {
-
 		begTime := time.Now()
 		uri := r.RequestURI
 		method := r.Method
@@ -256,7 +250,6 @@ func actionStart(next http.Handler) http.Handler {
 		acceptEncodings := r.Header.Values("Accept-Encoding")
 
 		for _, encodingLine := range acceptEncodings {
-
 			acceptEncoding := strings.Split(encodingLine, ",")
 			for _, encoding := range acceptEncoding {
 				if encoding == "gzip" {
@@ -269,7 +262,6 @@ func actionStart(next http.Handler) http.Handler {
 		sugar.Infoln(r.Header.Get("Content-Encoding"))
 
 		if r.Header.Get("Content-Encoding") == "gzip" {
-
 			buf, err := io.ReadAll(r.Body) // handle the error
 
 			if err != nil {
@@ -286,9 +278,7 @@ func actionStart(next http.Handler) http.Handler {
 			}
 
 			r.Body = gz
-
 		}
-
 		next.ServeHTTP(&lw, r)
 
 		duration := time.Since(begTime)
@@ -304,6 +294,21 @@ func actionStart(next http.Handler) http.Handler {
 	return http.HandlerFunc(f)
 }
 
+/*
+Сохраните все сокращённые URL на диск в виде файла. При перезапуске сервера все URL должны быть восстановлены.
+Сервер должен принимать соответствующие параметры конфигурации через флаги и переменные окружения:
+Флаг -f, переменная окружения FILE_STORAGE_PATH — путь до файла, куда сохраняются данные в формате JSON.
+Имя файла для значения по умолчанию придумайте сами.
+Пример содержимого файла:
+
+{"uuid":"1","short_url":"4rSPg8ap","original_url":"http://yandex.ru"}
+{"uuid":"2","short_url":"edVPg3ks","original_url":"http://ya.ru"}
+{"uuid":"3","short_url":"dG56Hqxm","original_url":"http://practicum.yandex.ru"}
+Приоритет параметров сервера должен быть таким:
+Если указана переменная окружения, то используется она.
+Если нет переменной окружения, но есть флаг, то используется он.
+Если нет ни переменной окружения, ни флага, то используется значение по умолчанию.
+*/
 func main() {
 	var errLogger error
 
@@ -322,6 +327,12 @@ func main() {
 	sugar = logger.Sugar()
 
 	repo = NewLinkRepo()
+
+	_, err := repo.Load(filePath + "/" + "repo.json")
+
+	if err != nil {
+		sugar.Infoln("CAN'T LOAD STORAGE FROM FILE")
+	}
 
 	r := chi.NewRouter()
 
