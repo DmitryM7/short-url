@@ -328,7 +328,7 @@ func main() {
 
 	repo = NewLinkRepo()
 
-	_, err := repo.Load(filePath + "/" + "repo.json")
+	err := repo.Load(filePath + "/" + "repo.json")
 
 	if err != nil {
 		sugar.Infoln("CAN'T LOAD STORAGE FROM FILE")

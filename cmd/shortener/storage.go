@@ -64,14 +64,12 @@ func (r *linkRepo) Unload(fp string) (int, error) {
 
 	return file.Write(j)
 }
-func (r *linkRepo) Load(fp string) (int, error) {
-	var size int
-
-	file, err := os.Open(fp)
+func (r *linkRepo) Load(fp string) error {
+	file, err := os.OpenFile(fp, os.O_RDONLY|os.O_CREATE, defFilePerm)
 
 	if err != nil {
 		sugar.Errorln("CANT OPEN STORAGE FILE")
-		return 0, err
+		return err
 	}
 
 	defer file.Close()
@@ -80,15 +78,19 @@ func (r *linkRepo) Load(fp string) (int, error) {
 
 	if err != nil {
 		sugar.Errorln("CANT READ STORAGE FROM FILE")
-		return 0, err
+		return err
 	}
 
-	err = json.Unmarshal(buffer, &r.repo)
+	if string(buffer) != "" {
+		err = json.Unmarshal(buffer, &r.repo)
 
-	if err != nil {
-		sugar.Errorln("CANT UNMARSHAL STORAGE BODY:" + string(buffer))
-		return 0, err
+		if err != nil {
+			sugar.Errorln("CANT UNMARSHAL STORAGE BODY:" + string(buffer))
+			return err
+		}
+	} else {
+		sugar.Infoln("EMPTY BUFFER. PROBABLY FIRST RUN")
 	}
 
-	return size, nil
+	return nil
 }
