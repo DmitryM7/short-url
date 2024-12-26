@@ -211,6 +211,12 @@ func actionShorten(w http.ResponseWriter, r *http.Request) {
 
 	newURL := repo.CreateAndSave(request.URL)
 
+	_, err = repo.Unload(filePath + "/" + "repo.json")
+
+	if err != nil {
+		sugar.Errorln("CANT SAVE REPO TO FILE")
+	}
+
 	response.Result = retAdd + "/" + newURL
 
 	w.Header().Set("Content-type", "application/json")
