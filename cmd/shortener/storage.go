@@ -10,7 +10,7 @@ import (
 
 const (
 	repoLength  int64       = 100
-	defFilePerm os.FileMode = 0666
+	defFilePerm os.FileMode = 0644
 )
 
 type linkRepo struct {
