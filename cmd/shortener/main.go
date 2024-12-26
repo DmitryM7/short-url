@@ -334,7 +334,7 @@ func main() {
 
 	repo = NewLinkRepo()
 
-	repo.SavePath = filePath + "/" + "repo.json"
+	repo.SavePath = filePath
 
 	err := repo.Load()
 
