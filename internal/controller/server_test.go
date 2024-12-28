@@ -1,9 +1,8 @@
-package main
+package controller
 
 import (
 	"encoding/json"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -20,7 +19,10 @@ import (
 )
 
 func init() { //nolint: gochecknoinits //see chapter "Setting Up Test Data" in https://www.bytesizego.com/blog/init-function-golang#:~:text=Reasons%20to%20Avoid%20Using%20the%20init%20Function%20in%20Go&text=Since%20it%20runs%20automatically%2C%20any,state%20changes%20without%20explicit%20calls
-	var errLogger error
+	var (
+		errLogger error
+		logger    *zap.Logger
+	)
 	conf.ParseFlags()
 
 	logger, errLogger = zap.NewDevelopment()
@@ -31,21 +33,27 @@ func init() { //nolint: gochecknoinits //see chapter "Setting Up Test Data" in h
 
 	defer logger.Sync() //nolint:errcheck // unnessesary error checking
 
-	sugar = logger.Sugar()
+	Logger = logger.Sugar()
+
 }
 
 func TestMain(m *testing.M) {
+	var repo repository.LinkRepo
+
 	flag.Parse()
 	conf.ParseEnv()
+
+	repo = repository.NewLinkRepo()
+	repo.SavePath = conf.FilePath
+	repo.Logger = Logger
+
+	Repo = repo
+
 	os.Exit(m.Run())
 }
 
 func TestActionCreateURL(t *testing.T) {
-	slog.Info("Запустился TestActionCreateUrl")
-
-	repo = repository.NewLinkRepo()
-	repo.SavePath = conf.FilePath
-	repo.Logger = sugar
+	Logger.Infoln("Запустился TestActionCreateUrl")
 
 	type args struct {
 		method string
@@ -101,7 +109,7 @@ func TestActionCreateURL(t *testing.T) {
 			var r *http.Request
 
 			if tt.args.body != "" {
-				sugar.Infoln("with body")
+				Logger.Infoln("with body")
 				r = httptest.NewRequest(tt.args.method, tt.args.url, strings.NewReader(tt.args.body))
 			} else {
 				r = httptest.NewRequest(tt.args.method, tt.args.url, nil)
@@ -125,10 +133,8 @@ func TestActionCreateURL(t *testing.T) {
 }
 
 func TestActionRedirect(t *testing.T) {
-	repo = repository.NewLinkRepo()
-	repo.SavePath = conf.FilePath
 
-	repo.Create("b8da4f2d", "www.ya.ru")
+	Repo.Create("b8da4f2d", "www.ya.ru")
 
 	type args struct {
 		method string
@@ -190,8 +196,6 @@ func TestActionRedirect(t *testing.T) {
 }
 
 func TestActionShorten(t *testing.T) {
-	repo = repository.NewLinkRepo()
-	repo.SavePath = conf.FilePath
 
 	type (
 		Args struct {
