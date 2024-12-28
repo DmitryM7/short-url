@@ -21,8 +21,12 @@ type LinkRepo struct {
 	Logger   *zap.SugaredLogger
 }
 
-func NewLinkRepo() LinkRepo {
-	return LinkRepo{repo: make(map[string]string, repoLength)}
+func NewLinkRepo(exportFile string, logger *zap.SugaredLogger) LinkRepo {
+	return LinkRepo{
+		SavePath: exportFile,
+		Logger:   logger,
+		repo:     make(map[string]string, repoLength),
+	}
 }
 
 func (r *LinkRepo) Create(h, l string) {

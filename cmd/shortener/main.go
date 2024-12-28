@@ -7,37 +7,25 @@ import (
 
 	"github.com/DmitryM7/short-url.git/internal/conf"
 	"github.com/DmitryM7/short-url.git/internal/controller"
+	"github.com/DmitryM7/short-url.git/internal/logger"
 	"github.com/DmitryM7/short-url.git/internal/repository"
 	"go.uber.org/zap"
 )
 
 var (
-	repo   repository.LinkRepo
-	logger *zap.Logger
-	sugar  *zap.SugaredLogger
+	repo  repository.LinkRepo
+	sugar *zap.SugaredLogger
 )
 
 func main() {
-	var errLogger error
 
 	conf.ParseFlags()
 	flag.Parse()
 	conf.ParseEnv()
 
-	logger, errLogger = zap.NewDevelopment()
+	sugar = logger.NewLogger()
 
-	if errLogger != nil {
-		panic("CAN'T INIT ZAP LOGGER")
-	}
-
-	defer logger.Sync() //nolint:errcheck // unnessesary error checking
-
-	sugar = logger.Sugar()
-
-	repo = repository.NewLinkRepo()
-
-	repo.SavePath = conf.FilePath
-	repo.Logger = sugar
+	repo = repository.NewLinkRepo(conf.FilePath, sugar)
 
 	err := repo.Load()
 

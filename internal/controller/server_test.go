@@ -12,42 +12,25 @@ import (
 	"flag"
 
 	"github.com/DmitryM7/short-url.git/internal/conf"
+	"github.com/DmitryM7/short-url.git/internal/logger"
 	"github.com/DmitryM7/short-url.git/internal/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 func init() { //nolint: gochecknoinits //see chapter "Setting Up Test Data" in https://www.bytesizego.com/blog/init-function-golang#:~:text=Reasons%20to%20Avoid%20Using%20the%20init%20Function%20in%20Go&text=Since%20it%20runs%20automatically%2C%20any,state%20changes%20without%20explicit%20calls
-	var (
-		errLogger error
-		logger    *zap.Logger
-	)
+
 	conf.ParseFlags()
 
-	logger, errLogger = zap.NewDevelopment()
-
-	if errLogger != nil {
-		panic("CAN'T INIT ZAP LOGGER")
-	}
-
-	defer logger.Sync() //nolint:errcheck // unnessesary error checking
-
-	Logger = logger.Sugar()
+	Logger = logger.NewLogger()
 
 }
 
 func TestMain(m *testing.M) {
-	var repo repository.LinkRepo
-
 	flag.Parse()
 	conf.ParseEnv()
 
-	repo = repository.NewLinkRepo()
-	repo.SavePath = conf.FilePath
-	repo.Logger = Logger
-
-	Repo = repo
+	Repo = repository.NewLinkRepo(conf.FilePath, Logger)
 
 	os.Exit(m.Run())
 }
