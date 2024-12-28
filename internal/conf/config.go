@@ -12,9 +12,9 @@ var (
 )
 
 func ParseFlags() {
-	flag.StringVar(&BndAdd, "a", "localhost:8080", "адрес на котором запускается сервис")
-	flag.StringVar(&RetAdd, "b", "http://localhost:8080", "адрес который возвращается после создания короткого алиаса")
-	flag.StringVar(&FilePath, "f", "./repo.json", "путь к файлу в котором будет хранится таблица соответствия коротких и полных ссылок")
+	flag.StringVar(&BndAdd, "a", "localhost:8080", "host where server is run")
+	flag.StringVar(&RetAdd, "b", "http://localhost:8080", "host that add to short link")
+	flag.StringVar(&FilePath, "f", "./repo.json", "the path to the file where the matching table of short and full links will be stored")
 }
 
 func ParseEnv() {

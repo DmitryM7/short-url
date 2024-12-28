@@ -13,7 +13,7 @@ import (
 	"flag"
 
 	"github.com/DmitryM7/short-url.git/internal/conf"
-	"github.com/DmitryM7/short-url.git/internal/models"
+	"github.com/DmitryM7/short-url.git/internal/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -43,7 +43,7 @@ func TestMain(m *testing.M) {
 func TestActionCreateURL(t *testing.T) {
 	slog.Info("Запустился TestActionCreateUrl")
 
-	repo = models.NewLinkRepo()
+	repo = repository.NewLinkRepo()
 	repo.SavePath = conf.FilePath
 	repo.Logger = sugar
 
@@ -125,7 +125,7 @@ func TestActionCreateURL(t *testing.T) {
 }
 
 func TestActionRedirect(t *testing.T) {
-	repo = models.NewLinkRepo()
+	repo = repository.NewLinkRepo()
 	repo.SavePath = conf.FilePath
 
 	repo.Create("b8da4f2d", "www.ya.ru")
@@ -190,7 +190,7 @@ func TestActionRedirect(t *testing.T) {
 }
 
 func TestActionShorten(t *testing.T) {
-	repo = models.NewLinkRepo()
+	repo = repository.NewLinkRepo()
 	repo.SavePath = conf.FilePath
 
 	type (

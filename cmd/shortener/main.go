@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/DmitryM7/short-url.git/internal/conf"
-	"github.com/DmitryM7/short-url.git/internal/models"
+	"github.com/DmitryM7/short-url.git/internal/repository"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
 
 var (
-	repo   models.LinkRepo
+	repo   repository.LinkRepo
 	logger *zap.Logger
 	sugar  *zap.SugaredLogger
 )
@@ -293,21 +293,6 @@ func actionStart(next http.Handler) http.Handler {
 	return http.HandlerFunc(f)
 }
 
-/*
-Сохраните все сокращённые URL на диск в виде файла. При перезапуске сервера все URL должны быть восстановлены.
-Сервер должен принимать соответствующие параметры конфигурации через флаги и переменные окружения:
-Флаг -f, переменная окружения FILE_STORAGE_PATH — путь до файла, куда сохраняются данные в формате JSON.
-Имя файла для значения по умолчанию придумайте сами.
-Пример содержимого файла:
-
-{"uuid":"1","short_url":"4rSPg8ap","original_url":"http://yandex.ru"}
-{"uuid":"2","short_url":"edVPg3ks","original_url":"http://ya.ru"}
-{"uuid":"3","short_url":"dG56Hqxm","original_url":"http://practicum.yandex.ru"}
-Приоритет параметров сервера должен быть таким:
-Если указана переменная окружения, то используется она.
-Если нет переменной окружения, но есть флаг, то используется он.
-Если нет ни переменной окружения, ни флага, то используется значение по умолчанию.
-*/
 func main() {
 	var errLogger error
 
@@ -325,7 +310,7 @@ func main() {
 
 	sugar = logger.Sugar()
 
-	repo = models.NewLinkRepo()
+	repo = repository.NewLinkRepo()
 
 	repo.SavePath = conf.FilePath
 	repo.Logger = sugar
