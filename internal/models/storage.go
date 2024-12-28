@@ -18,7 +18,7 @@ const (
 type LinkRepo struct {
 	repo     map[string]string
 	SavePath string
-	logger   *zap.SugaredLogger
+	Logger   *zap.SugaredLogger
 }
 
 func NewLinkRepo() LinkRepo {
@@ -65,7 +65,7 @@ func (r *LinkRepo) Unload() (int, error) {
 	file, err := os.OpenFile(r.SavePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, defFilePerm)
 
 	if err != nil {
-		r.logger.Infoln("FIND PATH:" + r.SavePath)
+		r.Logger.Infoln("FIND PATH:" + r.SavePath)
 		return 0, err
 	}
 
@@ -77,7 +77,7 @@ func (r *LinkRepo) Load() error {
 	file, err := os.OpenFile(r.SavePath, os.O_RDONLY|os.O_CREATE, defFilePerm)
 
 	if err != nil {
-		r.logger.Errorln("CANT OPEN STORAGE FILE:" + r.SavePath)
+		r.Logger.Errorln("CANT OPEN STORAGE FILE:" + r.SavePath)
 		return err
 	}
 
@@ -86,7 +86,7 @@ func (r *LinkRepo) Load() error {
 	buffer, err := io.ReadAll(file)
 
 	if err != nil {
-		r.logger.Errorln("CANT READ STORAGE FROM FILE")
+		r.Logger.Errorln("CANT READ STORAGE FROM FILE")
 		return err
 	}
 
@@ -94,11 +94,11 @@ func (r *LinkRepo) Load() error {
 		err = json.Unmarshal(buffer, &r.repo)
 
 		if err != nil {
-			r.logger.Errorln("CANT UNMARSHAL STORAGE BODY:" + string(buffer))
+			r.Logger.Errorln("CANT UNMARSHAL STORAGE BODY:" + string(buffer))
 			return err
 		}
 	} else {
-		r.logger.Infoln("EMPTY BUFFER. PROBABLY FIRST RUN")
+		r.Logger.Infoln("EMPTY BUFFER. PROBABLY FIRST RUN")
 	}
 
 	return nil
