@@ -45,6 +45,7 @@ func TestActionCreateURL(t *testing.T) {
 
 	repo = models.NewLinkRepo()
 	repo.SavePath = conf.FilePath
+	repo.Logger = sugar
 
 	type args struct {
 		method string

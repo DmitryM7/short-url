@@ -328,6 +328,7 @@ func main() {
 	repo = models.NewLinkRepo()
 
 	repo.SavePath = conf.FilePath
+	repo.Logger = sugar
 
 	err := repo.Load()
 
