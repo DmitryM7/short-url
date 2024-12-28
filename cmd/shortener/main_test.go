@@ -189,7 +189,6 @@ func TestActionRedirect(t *testing.T) {
 }
 
 func TestActionShorten(t *testing.T) {
-
 	repo = models.NewLinkRepo()
 	repo.SavePath = conf.FilePath
 

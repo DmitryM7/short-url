@@ -149,11 +149,6 @@ func actionRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err != nil {
-		actionError(w, "Can't find short url by ID")
-		return
-	}
-
 	http.Redirect(w, r, newURL, http.StatusTemporaryRedirect)
 }
 
