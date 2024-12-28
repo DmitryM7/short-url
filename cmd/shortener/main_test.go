@@ -12,6 +12,8 @@ import (
 
 	"flag"
 
+	"github.com/DmitryM7/short-url.git/internal/conf"
+	"github.com/DmitryM7/short-url.git/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -19,7 +21,7 @@ import (
 
 func init() { //nolint: gochecknoinits //see chapter "Setting Up Test Data" in https://www.bytesizego.com/blog/init-function-golang#:~:text=Reasons%20to%20Avoid%20Using%20the%20init%20Function%20in%20Go&text=Since%20it%20runs%20automatically%2C%20any,state%20changes%20without%20explicit%20calls
 	var errLogger error
-	parseFlags()
+	conf.ParseFlags()
 
 	logger, errLogger = zap.NewDevelopment()
 
@@ -34,14 +36,15 @@ func init() { //nolint: gochecknoinits //see chapter "Setting Up Test Data" in h
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	parseEnv()
+	conf.ParseEnv()
 	os.Exit(m.Run())
 }
 
 func TestActionCreateURL(t *testing.T) {
 	slog.Info("Запустился TestActionCreateUrl")
 
-	repo = NewLinkRepo()
+	repo = models.NewLinkRepo()
+	repo.SavePath = conf.FilePath
 
 	type args struct {
 		method string
@@ -121,7 +124,8 @@ func TestActionCreateURL(t *testing.T) {
 }
 
 func TestActionRedirect(t *testing.T) {
-	repo = NewLinkRepo()
+	repo = models.NewLinkRepo()
+	repo.SavePath = conf.FilePath
 
 	repo.Create("b8da4f2d", "www.ya.ru")
 
@@ -185,6 +189,10 @@ func TestActionRedirect(t *testing.T) {
 }
 
 func TestActionShorten(t *testing.T) {
+
+	repo = models.NewLinkRepo()
+	repo.SavePath = conf.FilePath
+
 	type (
 		Args struct {
 			URL  string

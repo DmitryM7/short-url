@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -13,12 +12,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DmitryM7/short-url.git/internal/conf"
+	"github.com/DmitryM7/short-url.git/internal/models"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
 
 var (
-	repo   linkRepo
+	repo   models.LinkRepo
 	logger *zap.Logger
 	sugar  *zap.SugaredLogger
 )
@@ -90,14 +91,6 @@ func (r *CustomResponseWriter) WriteHeader(statusCode int) {
 	r.responseData.status = statusCode
 }
 
-func getURL(id string) (string, error) {
-	if url, err := repo.Get(id); err == nil {
-		return url, nil
-	}
-
-	return "", errors.New("NO REQUIRED PARAM ID")
-}
-
 func actionError(w http.ResponseWriter, e string) {
 	sugar.Infoln(e)
 	w.WriteHeader(http.StatusBadRequest)
@@ -128,7 +121,7 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
-	_, errWrite := w.Write([]byte(retAdd + "/" + newURL))
+	_, errWrite := w.Write([]byte(conf.RetAdd + "/" + newURL))
 
 	if errWrite != nil {
 		sugar.Errorln("CANT WRITE DATA TO RESPONSE")
@@ -149,7 +142,12 @@ func actionRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL, err := getURL(id)
+	newURL, err := repo.Get(id)
+
+	if err != nil {
+		actionError(w, "CAN'T GET SHORT LINK FROM REPO")
+		return
+	}
 
 	if err != nil {
 		actionError(w, "Can't find short url by ID")
@@ -217,7 +215,7 @@ func actionShorten(w http.ResponseWriter, r *http.Request) {
 		sugar.Errorln("CANT SAVE REPO TO FILE")
 	}
 
-	response.Result = retAdd + "/" + newURL
+	response.Result = conf.RetAdd + "/" + newURL
 
 	w.Header().Set("Content-type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -318,9 +316,9 @@ func actionStart(next http.Handler) http.Handler {
 func main() {
 	var errLogger error
 
-	parseFlags()
+	conf.ParseFlags()
 	flag.Parse()
-	parseEnv()
+	conf.ParseEnv()
 
 	logger, errLogger = zap.NewDevelopment()
 
@@ -332,9 +330,9 @@ func main() {
 
 	sugar = logger.Sugar()
 
-	repo = NewLinkRepo()
+	repo = models.NewLinkRepo()
 
-	repo.SavePath = filePath
+	repo.SavePath = conf.FilePath
 
 	err := repo.Load()
 
@@ -366,10 +364,10 @@ func main() {
 	  github.com/sirupsen/logrus.
 	  Все сообщения логера должны быть на уровне Info.
 	********************************************************************************************/
-	sugar.Infow("Starting server", "bndAdd", bndAdd)
+	sugar.Infow("Starting server", "bndAdd", conf.BndAdd)
 
 	server := &http.Server{
-		Addr:         bndAdd,
+		Addr:         conf.BndAdd,
 		Handler:      r,
 		WriteTimeout: 5 * time.Second,
 		ReadTimeout:  30 * time.Second,
