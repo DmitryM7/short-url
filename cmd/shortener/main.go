@@ -13,7 +13,6 @@ import (
 )
 
 var (
-	repo  repository.LinkRepo
 	sugar *zap.SugaredLogger
 )
 
@@ -27,7 +26,10 @@ func main() {
 	flag.Parse()
 	conf.ParseEnv()
 
-	repo = repository.NewLinkRepo(conf.FilePath, sugar)
+	//repo = repository.NewLinkRepo(conf.FilePath, sugar)
+
+	repo := repository.NewLinkRepoDB(sugar)
+	repo.DatabaseDSN = conf.DatabaseDSN
 
 	err := repo.Load()
 
