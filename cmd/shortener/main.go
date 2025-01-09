@@ -19,23 +19,25 @@ var (
 
 func main() {
 
+	sugar = logger.NewLogger()
+
+	sugar.Infoln("RUN...")
+
 	conf.ParseFlags()
 	flag.Parse()
 	conf.ParseEnv()
-
-	sugar = logger.NewLogger()
 
 	repo = repository.NewLinkRepo(conf.FilePath, sugar)
 
 	err := repo.Load()
 
 	if err != nil {
-		sugar.Infoln("CAN'T LOAD STORAGE FROM FILE")
+		sugar.Infoln("CAN'T LOAD STORAGE FROM FILE. USE EMPTY REPO.")
 	}
 
 	r := controller.NewRouter(sugar, repo)
 
-	sugar.Infow("Starting server", "bndAdd", conf.BndAdd)
+	sugar.Infoln("Starting server", "bndAdd", conf.BndAdd)
 
 	server := &http.Server{
 		Addr:         conf.BndAdd,
@@ -47,4 +49,5 @@ func main() {
 	if errServ := server.ListenAndServe(); errServ != nil {
 		sugar.Fatalw(errServ.Error(), "event", "start server")
 	}
+
 }
