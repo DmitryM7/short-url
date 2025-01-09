@@ -69,7 +69,7 @@ func (r *LinkRepo) Unload() (int, error) {
 	file, err := os.OpenFile(r.SavePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, defFilePerm)
 
 	if err != nil {
-		r.Logger.Infoln("FIND PATH:" + r.SavePath)
+		r.Logger.Debugln("FIND PATH:" + r.SavePath)
 		return 0, err
 	}
 

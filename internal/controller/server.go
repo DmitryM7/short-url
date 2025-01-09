@@ -70,7 +70,7 @@ func (r *CustomResponseWriter) Write(b []byte) (int, error) {
 			size = 0
 			err = fmt.Errorf("CANT CREATE GZIP")
 		} else {
-			Logger.Infoln("DO ZIPPING")
+			Logger.Debugln("DO ZIPPING")
 			size, err = gz.Write(b)
 		}
 		defer gz.Close()
@@ -161,7 +161,7 @@ func actionTest(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
-	Logger.Infoln(string(body))
+	Logger.Debugln(string(body))
 
 	if err != nil {
 		actionError(w, "CAN'T READ BODY")
@@ -257,7 +257,7 @@ func actionStart(next http.Handler) http.Handler {
 			}
 		}
 
-		Logger.Infoln(r.Header.Get("Content-Encoding"))
+		Logger.Debugln(r.Header.Get("Content-Encoding"))
 
 		if r.Header.Get("Content-Encoding") == "gzip" {
 			buf, err := io.ReadAll(r.Body) // handle the error
