@@ -14,12 +14,10 @@ type LinkRepoDB struct {
 	DatabaseDSN string
 }
 
-func NewLinkRepoDB(logger *zap.SugaredLogger) LinkRepoDB {
+func NewLinkRepoDB(logger *zap.SugaredLogger, filePath string, dsn string) LinkRepoDB {
 	return LinkRepoDB{
-
-		LinkRepo: LinkRepo{
-			Logger: logger,
-		},
+		DatabaseDSN: dsn,
+		LinkRepo:    NewLinkRepo(filePath, logger),
 	}
 }
 

@@ -30,7 +30,7 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 	conf.ParseEnv()
 
-	Repo = repository.NewLinkRepo(conf.FilePath, Logger)
+	Repo = repository.NewLinkRepoDB(Logger, conf.FilePath, conf.DSN)
 
 	os.Exit(m.Run())
 }

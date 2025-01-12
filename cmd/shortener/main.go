@@ -28,9 +28,7 @@ func main() {
 
 	//repo = repository.NewLinkRepo(conf.FilePath, sugar)
 
-	repo := repository.NewLinkRepoDB(sugar)
-	repo.DatabaseDSN = conf.DatabaseDSN
-	repo.SavePath = conf.FilePath
+	repo := repository.NewLinkRepoDB(sugar, conf.FilePath, conf.DSN)
 
 	err := repo.Load()
 

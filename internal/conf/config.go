@@ -6,17 +6,17 @@ import (
 )
 
 var (
-	BndAdd      string
-	RetAdd      string
-	FilePath    string
-	DatabaseDSN string
+	BndAdd   string
+	RetAdd   string
+	FilePath string
+	DSN      string
 )
 
 func ParseFlags() {
 	flag.StringVar(&BndAdd, "a", "localhost:8080", "host where server is run")
 	flag.StringVar(&RetAdd, "b", "http://localhost:8080", "host that add to short link")
 	flag.StringVar(&FilePath, "f", "./repo.json", "the path to the file where the matching table of short and full links will be stored")
-	flag.StringVar(&DatabaseDSN, "d", "", "database dsn")
+	flag.StringVar(&DSN, "d", "", "database dsn")
 }
 
 func ParseEnv() {
@@ -33,6 +33,6 @@ func ParseEnv() {
 	}
 
 	if env := os.Getenv("DATABASE_DSN"); env != "" {
-		DatabaseDSN = env
+		DSN = env
 	}
 }
