@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -20,7 +19,7 @@ import (
 var (
 	R      *chi.Mux
 	Logger *zap.SugaredLogger
-	Repo   repository.LinkRepo
+	Repo   repository.LinkRepoDB
 )
 
 type (
@@ -96,7 +95,7 @@ func actionError(w http.ResponseWriter, e string) {
 	_, err := w.Write([]byte(e))
 
 	if err != nil {
-		slog.Error("CAN'T WRITE ANSWER")
+		Logger.Error("CAN'T WRITE ANSWER")
 	}
 }
 
@@ -149,6 +148,20 @@ func actionRedirect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, newURL, http.StatusTemporaryRedirect)
+}
+
+func actionPing(w http.ResponseWriter, r *http.Request) {
+
+	_, err := Repo.Connect()
+
+	if err != nil {
+		Logger.Infoln("CAN'T OPEN DATABASE CONNECT")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+
 }
 
 func actionTest(w http.ResponseWriter, r *http.Request) {
@@ -292,7 +305,7 @@ func actionStart(next http.Handler) http.Handler {
 	return http.HandlerFunc(f)
 }
 
-func NewRouter(logger *zap.SugaredLogger, repo repository.LinkRepo) *chi.Mux {
+func NewRouter(logger *zap.SugaredLogger, repo repository.LinkRepoDB) *chi.Mux {
 
 	Logger = logger
 	Repo = repo
@@ -305,6 +318,7 @@ func NewRouter(logger *zap.SugaredLogger, repo repository.LinkRepo) *chi.Mux {
 		r.Post("/", actionCreateURL)
 		r.Post("/api/shorten", actionShorten)
 		r.Get("/{id}", actionRedirect)
+		r.Get("/ping", actionPing)
 		r.Get("/tst", actionTest)
 		r.Post("/tst", actionTest)
 	})
