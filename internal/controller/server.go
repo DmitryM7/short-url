@@ -156,6 +156,7 @@ func actionPing(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		Logger.Infoln("CAN'T OPEN DATABASE CONNECT")
+		Logger.Infoln(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

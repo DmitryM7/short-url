@@ -1,10 +1,11 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
-	_ "github.com/jackc/pgx/stdlib"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 )
 
@@ -33,8 +34,16 @@ func (l *LinkRepoDB) Connect() (*sql.DB, error) {
 	}
 
 	db, err := sql.Open("pgx", l.DatabaseDSN)
-	fmt.Println(l.DatabaseDSN)
+
+	if err != nil {
+		return nil, err
+	}
+
 	defer db.Close()
+
+	if err := db.PingContext(context.Background()); err != nil {
+		return nil, err
+	}
 
 	return db, err
 }
