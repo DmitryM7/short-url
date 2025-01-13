@@ -321,7 +321,7 @@ func actionBatch(w http.ResponseWriter, r *http.Request) {
 func actionStart(next http.Handler) http.Handler {
 	f := func(w http.ResponseWriter, r *http.Request) {
 
-		Logger.Debugln("Req: %s %s\n", r.Host, r.URL.Path)
+		Logger.Debugln(fmt.Sprintf("Req: %s %s\n", r.Host, r.URL.Path))
 
 		begTime := time.Now()
 		uri := r.RequestURI
