@@ -47,12 +47,13 @@ func (r *LinkRepo) SetSavePath(p string) {
 	r.SavePath = p
 }
 
-func (r *LinkRepo) CreateAndSave(url string) string {
-	var shortURL string
+func (r *LinkRepo) CalcShortURL(url string) string {
+	return fmt.Sprintf("%08x", crc32.Checksum([]byte(url), crc32.MakeTable(crc32.IEEE)))
+}
 
-	checksum := crc32.Checksum([]byte(url), crc32.MakeTable(crc32.IEEE))
+func (r *LinkRepo) CalcAndCreate(url string) string {
 
-	shortURL = fmt.Sprintf("%08x", checksum)
+	shortURL := r.CalcShortURL(url)
 
 	r.Create(shortURL, url)
 
