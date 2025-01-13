@@ -206,6 +206,8 @@ func actionTest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func actionShorten(w http.ResponseWriter, r *http.Request) {
+	Logger.Debugln("Start Shorten")
+
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 
@@ -272,6 +274,8 @@ func actionBatch(w http.ResponseWriter, r *http.Request) {
 		actionError(w, "EMPTY BODY")
 		return
 	}
+
+	Logger.Debugln(string(body))
 
 	input := []RequestShortenBatchUnit{}
 	output := []ResponseShortenBatchUnit{}
