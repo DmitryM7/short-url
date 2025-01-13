@@ -55,12 +55,15 @@ func (b *DBProvider) CreateSchema() error {
 
 	err := row.Scan(&tableName)
 
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
-
-	_, err = b.DB.ExecContext(context.Background(), `CREATE TABLE repo ("id" SERIAL PRIMARY KEY,"shorturl" VARCHAR NOT NULL UNIQUE,"url" VARCHAR NOT NULL)`)
 	if err != nil {
+
+		if err == sql.ErrNoRows {
+			_, err = b.DB.ExecContext(context.Background(), `CREATE TABLE repo ("id" SERIAL PRIMARY KEY,"shorturl" VARCHAR NOT NULL UNIQUE,"url" VARCHAR NOT NULL)`)
+			if err != nil {
+				return err
+			}
+		}
+
 		return err
 	}
 

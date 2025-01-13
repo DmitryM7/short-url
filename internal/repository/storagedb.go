@@ -87,8 +87,9 @@ func (l *LinkRepoDB) Load() error {
 	defer rows.Close()
 
 	for rows.Next() {
+		var id int
 		var shorturl, url string
-		err = rows.Scan(&shorturl, &url)
+		err = rows.Scan(&id, &shorturl, &url)
 
 		if err != nil {
 			return err
