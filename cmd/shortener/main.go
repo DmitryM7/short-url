@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -26,14 +27,12 @@ func main() {
 	flag.Parse()
 	conf.ParseEnv()
 
-	//repo = repository.NewLinkRepo(conf.FilePath, sugar)
-
 	repo := repository.NewLinkRepoDB(sugar, conf.FilePath, conf.DSN)
 
 	err := repo.Load()
 
 	if err != nil {
-		sugar.Infoln("CAN'T LOAD STORAGE FROM FILE. USE EMPTY REPO.")
+		sugar.Infoln("CAN'T LOAD STORAGE. " + fmt.Sprintf("%s", err) + " . USE EMPTY REPO.")
 	}
 
 	r := controller.NewRouter(sugar, repo)
