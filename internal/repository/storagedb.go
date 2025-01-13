@@ -82,6 +82,10 @@ func (l *LinkRepoDB) Load() error {
 		return err
 	}
 
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+
 	defer rows.Close()
 
 	for rows.Next() {
