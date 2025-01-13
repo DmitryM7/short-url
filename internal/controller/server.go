@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -20,7 +19,7 @@ import (
 var (
 	R      *chi.Mux
 	Logger *zap.SugaredLogger
-	Repo   repository.LinkRepo
+	Repo   repository.LinkRepoDB
 )
 
 type (
@@ -41,6 +40,16 @@ type (
 
 	Response struct {
 		Result string `json:"result"`
+	}
+
+	RequestShortenBatchUnit struct {
+		CorrelationId string `json:"correlation_id"`
+		OriginalUrl   string `json:"original_url"`
+	}
+
+	ResponseShortenBatchUnit struct {
+		CorrelationId string `json:"correlation_id"`
+		ShortUrl      string `json:"short_url"`
 	}
 )
 
@@ -96,7 +105,7 @@ func actionError(w http.ResponseWriter, e string) {
 	_, err := w.Write([]byte(e))
 
 	if err != nil {
-		slog.Error("CAN'T WRITE ANSWER")
+		Logger.Error("CAN'T WRITE ANSWER")
 	}
 }
 
@@ -116,7 +125,7 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL := Repo.CreateAndSave(url)
+	newURL := Repo.CalcAndCreate(url)
 
 	w.Header().Set("Content-type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
@@ -129,7 +138,7 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	_, err = Repo.Unload()
 
 	if err != nil {
-		Logger.Errorln("CANT SAVE REPO TO FILE")
+		Logger.Errorln("CANT SAVE REPO:" + fmt.Sprintf("%s", err))
 	}
 }
 
@@ -149,6 +158,21 @@ func actionRedirect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, newURL, http.StatusTemporaryRedirect)
+}
+
+func actionPing(w http.ResponseWriter, r *http.Request) {
+
+	err := Repo.Ping()
+
+	if err != nil {
+		Logger.Infoln("CAN'T OPEN DATABASE CONNECT")
+		Logger.Infoln(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+
 }
 
 func actionTest(w http.ResponseWriter, r *http.Request) {
@@ -201,7 +225,7 @@ func actionShorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL := Repo.CreateAndSave(request.URL)
+	newURL := Repo.CalcAndCreate(request.URL)
 
 	_, err = Repo.Unload()
 
@@ -215,6 +239,72 @@ func actionShorten(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	res, err := json.Marshal(response)
+	if err != nil {
+		actionError(w, "CAN'T UNMARSHAL JSON RESULT.")
+		return
+	}
+
+	_, errRes := w.Write(res)
+
+	if errRes != nil {
+		actionError(w, "CAN'T WRITE RESULT BODY.")
+		return
+	}
+}
+
+func actionBatch(w http.ResponseWriter, r *http.Request) {
+	var batchError error = nil
+
+	body, err := io.ReadAll(r.Body)
+
+	if err != nil {
+		actionError(w, "CAN'T READ BODY FROM REQUEST")
+		return
+	}
+
+	defer r.Body.Close()
+
+	if string(body) == "" {
+		actionError(w, "EMPTY BODY")
+		return
+	}
+
+	input := []RequestShortenBatchUnit{}
+	output := []ResponseShortenBatchUnit{}
+
+	err = json.Unmarshal(body, &input)
+
+	if err != nil {
+		actionError(w, "CAN'T UNMARSHAL JSON BODY.")
+		return
+	}
+
+	for _, v := range input {
+
+		shorturl, err := Repo.CalcAndCreateManualCommit(v.OriginalUrl)
+		if err != nil {
+			batchError = err
+			break
+		}
+
+		output = append(output, ResponseShortenBatchUnit{
+			CorrelationId: v.CorrelationId,
+			ShortUrl:      shorturl,
+		})
+
+	}
+
+	if batchError != nil {
+		Repo.RollBack()
+		actionError(w, "CAN'T BATCH LOAD"+fmt.Sprintf("%s", batchError))
+	}
+
+	Repo.Commit()
+
+	w.Header().Set("Content-type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	res, err := json.Marshal(output)
 	if err != nil {
 		actionError(w, "CAN'T UNMARSHAL JSON RESULT.")
 		return
@@ -292,7 +382,7 @@ func actionStart(next http.Handler) http.Handler {
 	return http.HandlerFunc(f)
 }
 
-func NewRouter(logger *zap.SugaredLogger, repo repository.LinkRepo) *chi.Mux {
+func NewRouter(logger *zap.SugaredLogger, repo repository.LinkRepoDB) *chi.Mux {
 
 	Logger = logger
 	Repo = repo
@@ -305,8 +395,10 @@ func NewRouter(logger *zap.SugaredLogger, repo repository.LinkRepo) *chi.Mux {
 		r.Post("/", actionCreateURL)
 		r.Post("/api/shorten", actionShorten)
 		r.Get("/{id}", actionRedirect)
+		r.Get("/ping", actionPing)
 		r.Get("/tst", actionTest)
 		r.Post("/tst", actionTest)
+		r.Post("/shorten/batch", actionBatch)
 	})
 
 	return R
