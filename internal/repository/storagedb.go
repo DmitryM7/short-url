@@ -19,7 +19,7 @@ func NewLinkRepoDB(logger *zap.SugaredLogger, filePath string, dsn string) LinkR
 	}
 }
 
-func (l *LinkRepoDB) SaveInDb(shorturl, url string) error {
+func (l *LinkRepoDB) SaveInDB(shorturl, url string) error {
 	err := l.DBProvider.Connect()
 
 	if err != nil {
@@ -38,7 +38,7 @@ func (l *LinkRepoDB) CalcAndCreate(url string) string {
 
 	if l.DatabaseDSN != "" {
 
-		err := l.SaveInDb(shorturl, url)
+		err := l.SaveInDB(shorturl, url)
 
 		if err != nil {
 			l.DBProvider.RollBack()
@@ -58,7 +58,7 @@ func (l *LinkRepoDB) CalcAndCreateManualCommit(url string) (string, error) {
 
 	if l.DatabaseDSN != "" {
 
-		err := l.SaveInDb(shorturl, url)
+		err := l.SaveInDB(shorturl, url)
 
 		return shorturl, err
 
@@ -80,7 +80,7 @@ func (l *LinkRepoDB) Load() error {
 
 	rows, err := l.DBProvider.Load()
 
-	if err != nil {
+	if err != nil || rows.Err() != nil {
 		return err
 	}
 

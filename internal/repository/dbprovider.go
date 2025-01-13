@@ -8,7 +8,7 @@ import (
 
 type DBProvider struct {
 	Dsn string
-	Db  *sql.DB
+	DB  *sql.DB
 	Tr  *sql.Tx
 }
 
@@ -29,7 +29,7 @@ func (b *DBProvider) Connect() error {
 		return err
 	}
 
-	b.Db = db
+	b.DB = db
 
 	return nil
 }
@@ -51,7 +51,7 @@ func (b *DBProvider) Commit() {
 func (b *DBProvider) CreateSchema() error {
 	var tableName string
 
-	row := b.Db.QueryRowContext(context.Background(), "SELECT schemaname from pg_stat_user_tables WHERE relname LIKE 'repo'")
+	row := b.DB.QueryRowContext(context.Background(), "SELECT schemaname from pg_stat_user_tables WHERE relname LIKE 'repo'")
 
 	err := row.Scan(&tableName)
 
@@ -59,7 +59,7 @@ func (b *DBProvider) CreateSchema() error {
 		return err
 	}
 
-	_, err = b.Db.ExecContext(context.Background(), `CREATE TABLE repo ("id" SERIAL PRIMARY KEY,"shorturl" VARCHAR NOT NULL UNIQUE,"url" VARCHAR NOT NULL)`)
+	_, err = b.DB.ExecContext(context.Background(), `CREATE TABLE repo ("id" SERIAL PRIMARY KEY,"shorturl" VARCHAR NOT NULL UNIQUE,"url" VARCHAR NOT NULL)`)
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func (b *DBProvider) AddQuery(query string, shorturl string, url string) error {
 	var err error = nil
 
 	if b.Tr == nil {
-		b.Tr, err = b.Db.Begin()
+		b.Tr, err = b.DB.Begin()
 	}
 
 	if err != nil {
@@ -96,7 +96,7 @@ func (b *DBProvider) Load() (*sql.Rows, error) {
 		return nil, err
 	}
 
-	rows, err := b.Db.QueryContext(context.Background(), "SELECT id,shorturl,url FROM repo")
+	rows, err := b.DB.QueryContext(context.Background(), "SELECT id,shorturl,url FROM repo")
 
 	if err != nil {
 		return nil, err
@@ -112,12 +112,12 @@ func (b *DBProvider) Load() (*sql.Rows, error) {
 
 func (b *DBProvider) Close() {
 
-	b.Db.Close()
+	b.DB.Close()
 
 }
 
 func (b *DBProvider) Ping() error {
-	if b.Db == nil {
+	if b.DB == nil {
 		return fmt.Errorf("NO DATABASE")
 	} else {
 		return nil
