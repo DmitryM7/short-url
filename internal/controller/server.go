@@ -394,11 +394,11 @@ func NewRouter(logger *zap.SugaredLogger, repo repository.LinkRepoDB) *chi.Mux {
 	R.Route("/", func(r chi.Router) {
 		r.Post("/", actionCreateURL)
 		r.Post("/api/shorten", actionShorten)
+		r.Post("/api/shorten/batch", actionBatch)
 		r.Get("/{id}", actionRedirect)
 		r.Get("/ping", actionPing)
 		r.Get("/tst", actionTest)
 		r.Post("/tst", actionTest)
-		r.Post("/shorten/batch", actionBatch)
 	})
 
 	return R
