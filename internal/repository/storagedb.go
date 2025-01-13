@@ -1,57 +1,70 @@
 package repository
 
 import (
-	"context"
-	"database/sql"
-
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 )
 
 type LinkRepoDB struct {
 	LinkRepo
+	DBProvider
 	DatabaseDSN string
 }
 
 func NewLinkRepoDB(logger *zap.SugaredLogger, filePath string, dsn string) LinkRepoDB {
 	return LinkRepoDB{
 		DatabaseDSN: dsn,
+		DBProvider:  NewDBProvider(dsn),
 		LinkRepo:    NewLinkRepo(filePath, logger),
 	}
 }
 
-func (l *LinkRepoDB) Connect() (*sql.DB, error) {
-
-	db, err := sql.Open("pgx", l.DatabaseDSN)
+func (l *LinkRepoDB) SaveInDb(shorturl, url string) error {
+	err := l.DBProvider.Connect()
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if err := db.PingContext(context.Background()); err != nil {
-		return nil, err
-	}
+	err = l.DBProvider.AddQuery("INSERT INTO repo (shorturl,url) VALUES($1,$2)", shorturl, url)
 
-	return db, err
+	return err
+
 }
 
-func (l *LinkRepoDB) CreateSchema(db *sql.DB) error {
-	var tableName string
+func (l *LinkRepoDB) CalcAndCreate(url string) string {
 
-	row := db.QueryRowContext(context.Background(), "SELECT schemaname from pg_stat_user_tables WHERE relname LIKE 'repo'")
+	shorturl := l.LinkRepo.CalcAndCreate(url)
 
-	err := row.Scan(&tableName)
+	if l.DatabaseDSN != "" {
 
-	if err != nil && err != sql.ErrNoRows {
-		return err
+		err := l.SaveInDb(shorturl, url)
+
+		if err != nil {
+			l.DBProvider.RollBack()
+			return shorturl
+		}
+
+		l.DBProvider.Commit()
 	}
 
-	_, err = db.ExecContext(context.Background(), `CREATE TABLE repo ("id" SERIAL PRIMARY KEY,"shorturl" VARCHAR NOT NULL UNIQUE,"url" VARCHAR NOT NULL)`)
-	if err != nil {
-		return err
+	return shorturl
+
+}
+
+func (l *LinkRepoDB) CalcAndCreateManualCommit(url string) (string, error) {
+
+	shorturl := l.LinkRepo.CalcAndCreate(url)
+
+	if l.DatabaseDSN != "" {
+
+		err := l.SaveInDb(shorturl, url)
+
+		return shorturl, err
+
 	}
 
-	return nil
+	return shorturl, nil
 
 }
 
@@ -65,40 +78,23 @@ func (l *LinkRepoDB) Load() error {
 		return l.LinkRepo.Load()
 	}
 
-	db, err := l.Connect()
-	if err != nil {
-		return err
-	}
-
-	err = l.CreateSchema(db)
+	rows, err := l.DBProvider.Load()
 
 	if err != nil {
 		return err
-	}
-
-	rows, err := db.QueryContext(context.Background(), "SELECT id,shorturl,url FROM repo")
-
-	if err != nil {
-		return err
-	}
-
-	if rows.Err() != nil {
-		return rows.Err()
 	}
 
 	defer rows.Close()
 
 	for rows.Next() {
-		var id int
-		var k, s string
-
-		err = rows.Scan(&id, &k, &s)
+		var shorturl, url string
+		err = rows.Scan(&shorturl, &url)
 
 		if err != nil {
 			return err
 		}
 
-		l.repo[k] = s
+		l.Create(shorturl, url)
 	}
 
 	return nil
@@ -114,39 +110,6 @@ func (l *LinkRepoDB) Unload() (int, error) {
 		return l.LinkRepo.Unload()
 	}
 
-	var cLines int
-	db, err := l.Connect()
+	return 0, nil
 
-	if err != nil {
-		return cLines, err
-	}
-
-	_, err = db.ExecContext(context.Background(), `TRUNCATE repo`)
-
-	if err != nil {
-		return cLines, err
-	}
-
-	tx, err := db.Begin()
-
-	if err != nil {
-		return cLines, err
-	}
-
-	for k, v := range l.repo {
-
-		_, err := tx.ExecContext(context.Background(), "INSERT INTO repo (shorturl,url) VALUES($1,$2)", k, v)
-
-		if err != nil {
-			tx.Rollback()
-			return 0, err
-		}
-
-		cLines++
-
-	}
-
-	tx.Commit()
-
-	return cLines, err
 }
