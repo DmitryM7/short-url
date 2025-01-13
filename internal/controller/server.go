@@ -128,7 +128,7 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	_, err = Repo.Unload()
 
 	if err != nil {
-		Logger.Errorln("CANT SAVE REPO TO FILE")
+		Logger.Errorln("CANT SAVE REPO:" + fmt.Sprintf("%s", err))
 	}
 }
 
@@ -152,13 +152,20 @@ func actionRedirect(w http.ResponseWriter, r *http.Request) {
 
 func actionPing(w http.ResponseWriter, r *http.Request) {
 
-	_, err := Repo.Connect()
+	db, err := Repo.Connect()
 
 	if err != nil {
 		Logger.Infoln("CAN'T OPEN DATABASE CONNECT")
 		Logger.Infoln(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
+	}
+
+	defer db.Close()
+
+	err = Repo.CreateSchema(db)
+	if err != nil {
+		Logger.Infoln(err)
 	}
 
 	w.WriteHeader(http.StatusOK)
