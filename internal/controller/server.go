@@ -110,6 +110,7 @@ func actionError(w http.ResponseWriter, e string) {
 }
 
 func actionCreateURL(w http.ResponseWriter, r *http.Request) {
+	Logger.Debugln("Start CreateUrl")
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 
@@ -143,6 +144,9 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 }
 
 func actionRedirect(w http.ResponseWriter, r *http.Request) {
+
+	Logger.Debugln("Start Redirect")
+
 	id := strings.TrimPrefix(r.URL.Path, "/")
 
 	if id == "" {
