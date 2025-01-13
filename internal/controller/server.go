@@ -297,7 +297,7 @@ func actionBatch(w http.ResponseWriter, r *http.Request) {
 
 		output = append(output, ResponseShortenBatchUnit{
 			CorrelationID: v.CorrelationID,
-			ShortURL:      shorturl,
+			ShortURL:      conf.RetAdd + "/" + shorturl,
 		})
 
 	}
