@@ -43,13 +43,13 @@ type (
 	}
 
 	RequestShortenBatchUnit struct {
-		CorrelationId string `json:"correlation_id"`
-		OriginalUrl   string `json:"original_url"`
+		CorrelationID string `json:"correlation_id"`
+		OriginalURL   string `json:"original_url"`
 	}
 
 	ResponseShortenBatchUnit struct {
-		CorrelationId string `json:"correlation_id"`
-		ShortUrl      string `json:"short_url"`
+		CorrelationID string `json:"correlation_id"`
+		ShortURL      string `json:"short_url"`
 	}
 )
 
@@ -281,15 +281,15 @@ func actionBatch(w http.ResponseWriter, r *http.Request) {
 
 	for _, v := range input {
 
-		shorturl, err := Repo.CalcAndCreateManualCommit(v.OriginalUrl)
+		shorturl, err := Repo.CalcAndCreateManualCommit(v.OriginalURL)
 		if err != nil {
 			batchError = err
 			break
 		}
 
 		output = append(output, ResponseShortenBatchUnit{
-			CorrelationId: v.CorrelationId,
-			ShortUrl:      shorturl,
+			CorrelationID: v.CorrelationID,
+			ShortURL:      shorturl,
 		})
 
 	}
