@@ -51,13 +51,13 @@ func (r *LinkRepo) CalcShortURL(url string) string {
 	return fmt.Sprintf("%08x", crc32.Checksum([]byte(url), crc32.MakeTable(crc32.IEEE)))
 }
 
-func (r *LinkRepo) CalcAndCreate(url string) string {
+func (r *LinkRepo) CalcAndCreate(url string) (string, error) {
 
 	shortURL := r.CalcShortURL(url)
 
 	r.Create(shortURL, url)
 
-	return shortURL
+	return shortURL, nil
 }
 
 func (r *LinkRepo) Unload() (int, error) {

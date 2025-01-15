@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,8 @@ import (
 	"github.com/DmitryM7/short-url.git/internal/conf"
 	"github.com/DmitryM7/short-url.git/internal/repository"
 	"github.com/go-chi/chi"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
 )
 
@@ -110,7 +113,7 @@ func actionError(w http.ResponseWriter, e string) {
 }
 
 func actionCreateURL(w http.ResponseWriter, r *http.Request) {
-	Logger.Debugln("Start CreateUrl")
+	var answerStatus = http.StatusCreated
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 
@@ -126,10 +129,27 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL := Repo.CalcAndCreate(url)
+	newURL, err := Repo.CalcAndCreate(url)
+
+	var perr *pgconn.PgError
+
+	if errors.As(err, &perr) && perr.Code == pgerrcode.UniqueViolation {
+		/***********************************************************************
+		 * Бесмысленная история для стратегии №2 задания итерации 13           *
+		 * (мы можем сделать вставку т. и т. к., мы уже знаем сокращенный URL) *
+		 * но чтобы выполнить букву задания                                    *
+		 * делаем повторное получение shorturl из БД.                          *
+		 ***********************************************************************/
+		newURL, err = Repo.GetByUrl(url)
+		if err != nil {
+			actionError(w, "CAN'T RECEIVE SHORTURL FROM DB")
+			return
+		}
+		answerStatus = http.StatusConflict
+	}
 
 	w.Header().Set("Content-type", "text/plain")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(answerStatus)
 	_, errWrite := w.Write([]byte(conf.RetAdd + "/" + newURL))
 
 	if errWrite != nil {
@@ -206,6 +226,7 @@ func actionTest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func actionShorten(w http.ResponseWriter, r *http.Request) {
+	var answerStatus = http.StatusCreated
 	Logger.Debugln("Start Shorten")
 
 	body, err := io.ReadAll(r.Body)
@@ -231,7 +252,24 @@ func actionShorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL := Repo.CalcAndCreate(request.URL)
+	newURL, err := Repo.CalcAndCreate(request.URL)
+
+	var perr *pgconn.PgError
+
+	if errors.As(err, &perr) && perr.Code == pgerrcode.UniqueViolation {
+		/***********************************************************************
+		 * Бесмысленная история для стратегии №2 задания итерации 13           *
+		 * (мы можем сделать вставку т. и т. к., мы уже знаем сокращенный URL) *
+		 * но чтобы выполнить букву задания                                    *
+		 * делаем повторное получение shorturl из БД.                          *
+		 ***********************************************************************/
+		newURL, err = Repo.GetByUrl(request.URL)
+		if err != nil {
+			actionError(w, "CAN'T RECEIVE SHORTURL FROM DB")
+			return
+		}
+		answerStatus = http.StatusConflict
+	}
 
 	_, err = Repo.Unload()
 
@@ -242,7 +280,7 @@ func actionShorten(w http.ResponseWriter, r *http.Request) {
 	response.Result = conf.RetAdd + "/" + newURL
 
 	w.Header().Set("Content-type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(answerStatus)
 
 	res, err := json.Marshal(response)
 	if err != nil {

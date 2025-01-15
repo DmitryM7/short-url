@@ -58,7 +58,7 @@ func (b *DBProvider) CreateSchema() error {
 	if err != nil {
 
 		if err == sql.ErrNoRows {
-			_, err = b.DB.ExecContext(context.Background(), `CREATE TABLE repo ("id" SERIAL PRIMARY KEY,"shorturl" VARCHAR NOT NULL UNIQUE,"url" VARCHAR NOT NULL)`)
+			_, err = b.DB.ExecContext(context.Background(), `CREATE TABLE repo ("id" SERIAL PRIMARY KEY,"shorturl" VARCHAR NOT NULL UNIQUE,"url" VARCHAR NOT NULL UNIQUE)`)
 			if err != nil {
 				return err
 			}
@@ -71,7 +71,7 @@ func (b *DBProvider) CreateSchema() error {
 
 }
 
-func (b *DBProvider) AddQuery(query string, shorturl string, url string) error {
+func (b *DBProvider) Add(shorturl string, url string) error {
 	var err error = nil
 
 	if b.Tr == nil {
@@ -89,6 +89,13 @@ func (b *DBProvider) AddQuery(query string, shorturl string, url string) error {
 
 	return nil
 
+}
+
+func (b *DBProvider) GetByUrl(url string) (string, error) {
+	var shorturl string
+	row := b.DB.QueryRowContext(context.Background(), "SELECT shorturl FROM repo WHERE url=$1", url)
+	err := row.Scan(&shorturl)
+	return shorturl, err
 }
 
 func (b *DBProvider) Load() (*sql.Rows, error) {

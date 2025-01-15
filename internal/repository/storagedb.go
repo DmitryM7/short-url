@@ -26,15 +26,15 @@ func (l *LinkRepoDB) SaveInDB(shorturl, url string) error {
 		return err
 	}
 
-	err = l.DBProvider.AddQuery("INSERT INTO repo (shorturl,url) VALUES($1,$2)", shorturl, url)
+	err = l.DBProvider.Add(shorturl, url)
 
 	return err
 
 }
 
-func (l *LinkRepoDB) CalcAndCreate(url string) string {
+func (l *LinkRepoDB) CalcAndCreate(url string) (string, error) {
 
-	shorturl := l.LinkRepo.CalcAndCreate(url)
+	shorturl, _ := l.LinkRepo.CalcAndCreate(url)
 
 	if l.DatabaseDSN != "" {
 
@@ -42,19 +42,19 @@ func (l *LinkRepoDB) CalcAndCreate(url string) string {
 
 		if err != nil {
 			l.DBProvider.RollBack()
-			return shorturl
+			return shorturl, err
 		}
 
 		l.DBProvider.Commit()
 	}
 
-	return shorturl
+	return shorturl, nil
 
 }
 
 func (l *LinkRepoDB) CalcAndCreateManualCommit(url string) (string, error) {
 
-	shorturl := l.LinkRepo.CalcAndCreate(url)
+	shorturl, _ := l.LinkRepo.CalcAndCreate(url)
 
 	if l.DatabaseDSN != "" {
 
