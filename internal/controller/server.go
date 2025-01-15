@@ -140,7 +140,7 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		 * но чтобы выполнить букву задания                                    *
 		 * делаем повторное получение shorturl из БД.                          *
 		 ***********************************************************************/
-		newURL, err = Repo.GetByUrl(url)
+		newURL, err = Repo.GetByURL(url)
 		if err != nil {
 			actionError(w, "CAN'T RECEIVE SHORTURL FROM DB")
 			return
@@ -263,7 +263,7 @@ func actionShorten(w http.ResponseWriter, r *http.Request) {
 		 * но чтобы выполнить букву задания                                    *
 		 * делаем повторное получение shorturl из БД.                          *
 		 ***********************************************************************/
-		newURL, err = Repo.GetByUrl(request.URL)
+		newURL, err = Repo.GetByURL(request.URL)
 		if err != nil {
 			actionError(w, "CAN'T RECEIVE SHORTURL FROM DB")
 			return

@@ -91,7 +91,7 @@ func (b *DBProvider) Add(shorturl string, url string) error {
 
 }
 
-func (b *DBProvider) GetByUrl(url string) (string, error) {
+func (b *DBProvider) GetByURL(url string) (string, error) {
 	var shorturl string
 	row := b.DB.QueryRowContext(context.Background(), "SELECT shorturl FROM repo WHERE url=$1", url)
 	err := row.Scan(&shorturl)
