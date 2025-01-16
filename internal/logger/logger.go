@@ -5,7 +5,6 @@ import (
 )
 
 func NewLogger() *zap.SugaredLogger {
-
 	var (
 		logger    *zap.Logger
 		errLogger error

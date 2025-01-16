@@ -164,7 +164,6 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 }
 
 func actionRedirect(w http.ResponseWriter, r *http.Request) {
-
 	Logger.Debugln("Start Redirect")
 
 	id := strings.TrimPrefix(r.URL.Path, "/")
@@ -185,7 +184,6 @@ func actionRedirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func actionPing(w http.ResponseWriter, r *http.Request) {
-
 	err := Repo.Ping()
 
 	if err != nil {
@@ -196,7 +194,6 @@ func actionPing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-
 }
 
 func actionTest(w http.ResponseWriter, r *http.Request) {
@@ -326,7 +323,6 @@ func actionBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, v := range input {
-
 		shorturl, err := Repo.CalcAndCreateManualCommit(v.OriginalURL)
 		if err != nil {
 			batchError = err
@@ -337,7 +333,6 @@ func actionBatch(w http.ResponseWriter, r *http.Request) {
 			CorrelationID: v.CorrelationID,
 			ShortURL:      conf.RetAdd + "/" + shorturl,
 		})
-
 	}
 
 	if batchError != nil {
@@ -366,7 +361,6 @@ func actionBatch(w http.ResponseWriter, r *http.Request) {
 
 func actionStart(next http.Handler) http.Handler {
 	f := func(w http.ResponseWriter, r *http.Request) {
-
 		Logger.Debugln(fmt.Sprintf("Req: %s %s\n", r.Host, r.URL.Path))
 
 		begTime := time.Now()
@@ -432,7 +426,6 @@ func actionStart(next http.Handler) http.Handler {
 }
 
 func NewRouter(logger *zap.SugaredLogger, repo repository.LinkRepoDB) *chi.Mux {
-
 	Logger = logger
 	Repo = repo
 

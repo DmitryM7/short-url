@@ -18,7 +18,6 @@ var (
 )
 
 func main() {
-
 	sugar = logger.NewLogger()
 
 	sugar.Infoln("RUN...")
@@ -49,5 +48,4 @@ func main() {
 	if errServ := server.ListenAndServe(); errServ != nil {
 		sugar.Fatalw(errServ.Error(), "event", "start server")
 	}
-
 }

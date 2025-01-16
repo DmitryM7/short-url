@@ -52,7 +52,6 @@ func (r *LinkRepo) CalcShortURL(url string) string {
 }
 
 func (r *LinkRepo) CalcAndCreate(url string) (string, error) {
-
 	shortURL := r.CalcShortURL(url)
 
 	r.Create(shortURL, url)

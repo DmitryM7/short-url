@@ -14,7 +14,9 @@ type DBProvider struct {
 
 func NewDBProvider(dsn string) DBProvider {
 	DBProvider := DBProvider{Dsn: dsn}
-	DBProvider.Connect()
+
+	DBProvider.Connect() //nolint: errcheck //Successful connect will be chech in step "Connect"
+
 	return DBProvider
 }
 
@@ -36,14 +38,14 @@ func (b *DBProvider) Connect() error {
 
 func (b *DBProvider) RollBack() {
 	if b.Tr != nil {
-		b.Tr.Rollback()
+		b.Tr.Rollback() //nolint: errcheck //No matter
 		b.Tr = nil
 	}
 }
 
 func (b *DBProvider) Commit() {
 	if b.Tr != nil {
-		b.Tr.Commit()
+		b.Tr.Commit() //nolint: errcheck //No matter
 		b.Tr = nil
 	}
 }
@@ -56,9 +58,10 @@ func (b *DBProvider) CreateSchema() error {
 	err := row.Scan(&tableName)
 
 	if err != nil {
-
 		if err == sql.ErrNoRows {
-			_, err = b.DB.ExecContext(context.Background(), `CREATE TABLE repo ("id" SERIAL PRIMARY KEY,"shorturl" VARCHAR NOT NULL UNIQUE,"url" VARCHAR NOT NULL UNIQUE)`)
+			_, err = b.DB.ExecContext(context.Background(), `CREATE TABLE repo ("id" SERIAL PRIMARY KEY,
+			                                                                   "shorturl" VARCHAR NOT NULL UNIQUE,
+																			"url" VARCHAR NOT NULL UNIQUE)`)
 			if err != nil {
 				return err
 			}
@@ -68,10 +71,9 @@ func (b *DBProvider) CreateSchema() error {
 	}
 
 	return nil
-
 }
 
-func (b *DBProvider) Add(shorturl string, url string) error {
+func (b *DBProvider) Add(shorturl, url string) error {
 	var err error = nil
 
 	if b.Tr == nil {
@@ -88,7 +90,6 @@ func (b *DBProvider) Add(shorturl string, url string) error {
 	}
 
 	return nil
-
 }
 
 func (b *DBProvider) GetByURL(url string) (string, error) {
@@ -99,7 +100,6 @@ func (b *DBProvider) GetByURL(url string) (string, error) {
 }
 
 func (b *DBProvider) Load() (*sql.Rows, error) {
-
 	err := b.CreateSchema()
 
 	if err != nil {
@@ -117,13 +117,10 @@ func (b *DBProvider) Load() (*sql.Rows, error) {
 	}
 
 	return rows, nil
-
 }
 
 func (b *DBProvider) Close() {
-
 	b.DB.Close()
-
 }
 
 func (b *DBProvider) Ping() error {

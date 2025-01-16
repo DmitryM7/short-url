@@ -19,11 +19,9 @@ import (
 )
 
 func init() { //nolint: gochecknoinits //see chapter "Setting Up Test Data" in https://www.bytesizego.com/blog/init-function-golang#:~:text=Reasons%20to%20Avoid%20Using%20the%20init%20Function%20in%20Go&text=Since%20it%20runs%20automatically%2C%20any,state%20changes%20without%20explicit%20calls
-
 	conf.ParseFlags()
 
 	Logger = logger.NewLogger()
-
 }
 
 func TestMain(m *testing.M) {
@@ -116,7 +114,6 @@ func TestActionCreateURL(t *testing.T) {
 }
 
 func TestActionRedirect(t *testing.T) {
-
 	Repo.Create("b8da4f2d", "www.ya.ru")
 
 	type args struct {
@@ -179,7 +176,6 @@ func TestActionRedirect(t *testing.T) {
 }
 
 func TestActionShorten(t *testing.T) {
-
 	type (
 		Args struct {
 			URL  string

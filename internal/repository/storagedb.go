@@ -11,7 +11,7 @@ type LinkRepoDB struct {
 	DatabaseDSN string
 }
 
-func NewLinkRepoDB(logger *zap.SugaredLogger, filePath string, dsn string) LinkRepoDB {
+func NewLinkRepoDB(logger *zap.SugaredLogger, filePath, dsn string) LinkRepoDB {
 	return LinkRepoDB{
 		DatabaseDSN: dsn,
 		DBProvider:  NewDBProvider(dsn),
@@ -29,15 +29,12 @@ func (l *LinkRepoDB) SaveInDB(shorturl, url string) error {
 	err = l.DBProvider.Add(shorturl, url)
 
 	return err
-
 }
 
 func (l *LinkRepoDB) CalcAndCreate(url string) (string, error) {
-
 	shorturl, _ := l.LinkRepo.CalcAndCreate(url)
 
 	if l.DatabaseDSN != "" {
-
 		err := l.SaveInDB(shorturl, url)
 
 		if err != nil {
@@ -49,27 +46,21 @@ func (l *LinkRepoDB) CalcAndCreate(url string) (string, error) {
 	}
 
 	return shorturl, nil
-
 }
 
 func (l *LinkRepoDB) CalcAndCreateManualCommit(url string) (string, error) {
-
 	shorturl, _ := l.LinkRepo.CalcAndCreate(url)
 
 	if l.DatabaseDSN != "" {
-
 		err := l.SaveInDB(shorturl, url)
 
 		return shorturl, err
-
 	}
 
 	return shorturl, nil
-
 }
 
 func (l *LinkRepoDB) Load() error {
-
 	/************************************************
 	 * Если не указан DSN, то грузим из файла       *
 	 ************************************************/
@@ -102,15 +93,12 @@ func (l *LinkRepoDB) Load() error {
 }
 
 func (l *LinkRepoDB) Unload() (int, error) {
-
 	/************************************************
 	 * Если не указан DSN, то выгружаем в файл      *
 	 ************************************************/
-
 	if l.DatabaseDSN == "" {
 		return l.LinkRepo.Unload()
 	}
 
 	return 0, nil
-
 }
