@@ -50,29 +50,6 @@ func (b *DBProvider) Commit() {
 	}
 }
 
-func (b *DBProvider) CreateSchema() error {
-	var tableName string
-
-	row := b.DB.QueryRowContext(context.Background(), "SELECT schemaname from pg_stat_user_tables WHERE relname LIKE 'repo'")
-
-	err := row.Scan(&tableName)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			_, err = b.DB.ExecContext(context.Background(), `CREATE TABLE repo ("id" SERIAL PRIMARY KEY,
-			                                                                   "shorturl" VARCHAR NOT NULL UNIQUE,
-																			"url" VARCHAR NOT NULL UNIQUE)`)
-			if err != nil {
-				return err
-			}
-		}
-
-		return err
-	}
-
-	return nil
-}
-
 func (b *DBProvider) Add(shorturl, url string) error {
 	var err error = nil
 
@@ -100,11 +77,6 @@ func (b *DBProvider) GetByURL(url string) (string, error) {
 }
 
 func (b *DBProvider) Load() (*sql.Rows, error) {
-	err := b.CreateSchema()
-
-	if err != nil {
-		return nil, err
-	}
 
 	rows, err := b.DB.QueryContext(context.Background(), "SELECT id,shorturl,url FROM repo")
 
