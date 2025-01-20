@@ -15,6 +15,11 @@ const (
 	defFilePerm os.FileMode = 0644
 )
 
+type LinkRecord struct {
+	ShortUrl string
+	Url      string
+}
+
 type LinkRepo struct {
 	repo     map[string]string
 	SavePath string

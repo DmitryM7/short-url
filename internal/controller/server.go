@@ -313,12 +313,14 @@ func (s *MyServer) actionStart(next http.Handler) http.Handler {
 		responseData := &models.ResponseData{
 			Status: 0,
 			Size:   0,
+			Logger: s.Logger,
 		}
 
 		lw := models.CustomResponseWriter{
 			ResponseWriter: w,
 			ResponseData:   responseData,
 			NeedGZip:       false,
+			Logger:         s.Logger,
 		}
 
 		acceptEncodings := r.Header.Values("Accept-Encoding")
