@@ -18,6 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var Logger logger.MyLogger
+var Repo repository.LinkRepoDB
+
 func init() { //nolint: gochecknoinits //see chapter "Setting Up Test Data" in https://www.bytesizego.com/blog/init-function-golang#:~:text=Reasons%20to%20Avoid%20Using%20the%20init%20Function%20in%20Go&text=Since%20it%20runs%20automatically%2C%20any,state%20changes%20without%20explicit%20calls
 	conf.ParseFlags()
 
@@ -97,7 +100,9 @@ func TestActionCreateURL(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			actionCreateURL(w, r)
+			server, err := NewServer(Logger, Repo)
+			assert.Nil(t, err, "NewServer create with error")
+			server.actionCreateURL(w, r)
 			res := w.Result()
 			defer res.Body.Close()
 
@@ -166,7 +171,9 @@ func TestActionRedirect(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := httptest.NewRequest(tt.args.method, tt.args.url, nil)
 			w := httptest.NewRecorder()
-			actionRedirect(w, r)
+			server, err := NewServer(Logger, Repo)
+			assert.Nil(t, err, "NewServer create with error")
+			server.actionRedirect(w, r)
 			res := w.Result()
 			body, _ := io.ReadAll(res.Body)
 			t.Log(string(body))
@@ -227,7 +234,10 @@ func TestActionShorten(t *testing.T) {
 
 			w := httptest.NewRecorder()
 
-			actionShorten(w, r)
+			server, err := NewServer(Logger, Repo)
+			assert.Nil(t, err, "NewServer create with error")
+
+			server.actionShorten(w, r)
 			res := w.Result()
 			assert.Equal(t, tt.Want.StatusCode, res.StatusCode)
 

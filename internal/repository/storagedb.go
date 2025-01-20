@@ -1,8 +1,8 @@
 package repository
 
 import (
+	"github.com/DmitryM7/short-url.git/internal/logger"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"go.uber.org/zap"
 )
 
 type LinkRepoDB struct {
@@ -11,11 +11,11 @@ type LinkRepoDB struct {
 	DatabaseDSN string
 }
 
-func NewLinkRepoDB(logger *zap.SugaredLogger, filePath, dsn string) LinkRepoDB {
+func NewLinkRepoDB(log logger.MyLogger, filePath, dsn string) LinkRepoDB {
 	return LinkRepoDB{
 		DatabaseDSN: dsn,
 		DBProvider:  NewDBProvider(dsn),
-		LinkRepo:    NewLinkRepo(filePath, logger),
+		LinkRepo:    NewLinkRepo(filePath, log),
 	}
 }
 

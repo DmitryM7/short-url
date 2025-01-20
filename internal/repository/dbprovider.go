@@ -77,7 +77,6 @@ func (b *DBProvider) GetByURL(url string) (string, error) {
 }
 
 func (b *DBProvider) Load() (*sql.Rows, error) {
-
 	rows, err := b.DB.QueryContext(context.Background(), "SELECT id,shorturl,url FROM repo")
 
 	if err != nil {

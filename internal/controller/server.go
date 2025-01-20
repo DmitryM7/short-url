@@ -12,31 +12,15 @@ import (
 	"time"
 
 	"github.com/DmitryM7/short-url.git/internal/conf"
+	"github.com/DmitryM7/short-url.git/internal/logger"
+	"github.com/DmitryM7/short-url.git/internal/models"
 	"github.com/DmitryM7/short-url.git/internal/repository"
 	"github.com/go-chi/chi"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
-	"go.uber.org/zap"
-)
-
-var (
-	R      *chi.Mux
-	Logger *zap.SugaredLogger
-	Repo   repository.LinkRepoDB
 )
 
 type (
-	responseData struct {
-		status int
-		size   int
-	}
-
-	CustomResponseWriter struct {
-		http.ResponseWriter
-		responseData *responseData
-		needGZip     bool
-	}
-
 	Request struct {
 		URL string `json:"url"`
 	}
@@ -54,82 +38,41 @@ type (
 		CorrelationID string `json:"correlation_id"`
 		ShortURL      string `json:"short_url"`
 	}
+
+	MyServer struct {
+		Logger logger.MyLogger
+		Repo   repository.LinkRepoDB
+	}
 )
 
-func (r *CustomResponseWriter) isContentTypeNeedZip() bool {
-	needGZip := false
-
-	headers := r.Header().Values("Content-type")
-
-	for _, header := range headers {
-		if header == "application/json" || header == "text/html" {
-			needGZip = true
-		}
-	}
-	return needGZip
-}
-func (r *CustomResponseWriter) Write(b []byte) (int, error) {
-	var (
-		size int
-		err  error
-		gz   *gzip.Writer
-	)
-
-	if r.needGZip && r.isContentTypeNeedZip() {
-		gz, err = gzip.NewWriterLevel(r.ResponseWriter, gzip.BestSpeed)
-
-		if err != nil {
-			size = 0
-			err = fmt.Errorf("CANT CREATE GZIP")
-		} else {
-			Logger.Debugln("DO ZIPPING")
-			size, err = gz.Write(b)
-		}
-		defer gz.Close()
-	} else {
-		size, err = r.ResponseWriter.Write(b)
-	}
-
-	r.responseData.size += size
-	return size, err
-}
-
-func (r *CustomResponseWriter) WriteHeader(statusCode int) {
-	if r.needGZip && r.isContentTypeNeedZip() {
-		r.Header().Set("Content-encoding", "gzip")
-	}
-	r.ResponseWriter.WriteHeader(statusCode)
-	r.responseData.status = statusCode
-}
-
-func actionError(w http.ResponseWriter, e string) {
-	Logger.Infoln(e)
+func (s *MyServer) actionError(w http.ResponseWriter, e string) {
+	s.Logger.Infoln(e)
 	w.WriteHeader(http.StatusBadRequest)
 	_, err := w.Write([]byte(e))
 
 	if err != nil {
-		Logger.Error("CAN'T WRITE ANSWER")
+		s.Logger.Error("CAN'T WRITE ANSWER")
 	}
 }
 
-func actionCreateURL(w http.ResponseWriter, r *http.Request) {
+func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	var answerStatus = http.StatusCreated
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 
 	if err != nil {
-		actionError(w, "Error read query request body")
+		s.actionError(w, "Error read query request body")
 		return
 	}
 
 	url := string(body)
 
 	if url == "" {
-		actionError(w, "Body was send, but empty")
+		s.actionError(w, "Body was send, but empty")
 		return
 	}
 
-	newURL, err := Repo.CalcAndCreate(url)
+	newURL, err := s.Repo.CalcAndCreate(url)
 
 	var perr *pgconn.PgError
 
@@ -140,9 +83,9 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		 * но чтобы выполнить букву задания                                    *
 		 * делаем повторное получение shorturl из БД.                          *
 		 ***********************************************************************/
-		newURL, err = Repo.GetByURL(url)
+		newURL, err = s.Repo.GetByURL(url)
 		if err != nil {
-			actionError(w, "CAN'T RECEIVE SHORTURL FROM DB")
+			s.actionError(w, "CAN'T RECEIVE SHORTURL FROM DB")
 			return
 		}
 		answerStatus = http.StatusConflict
@@ -153,42 +96,42 @@ func actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	_, errWrite := w.Write([]byte(conf.RetAdd + "/" + newURL))
 
 	if errWrite != nil {
-		Logger.Errorln("CANT WRITE DATA TO RESPONSE")
+		s.Logger.Errorln("CANT WRITE DATA TO RESPONSE")
 	}
 
-	_, err = Repo.Unload()
+	_, err = s.Repo.Unload()
 
 	if err != nil {
-		Logger.Errorln("CANT SAVE REPO:" + fmt.Sprintf("%s", err))
+		s.Logger.Errorln("CANT SAVE REPO:" + fmt.Sprintf("%s", err))
 	}
 }
 
-func actionRedirect(w http.ResponseWriter, r *http.Request) {
-	Logger.Debugln("Start Redirect")
+func (s *MyServer) actionRedirect(w http.ResponseWriter, r *http.Request) {
+	s.Logger.Debugln("Start Redirect")
 
 	id := strings.TrimPrefix(r.URL.Path, "/")
 
 	if id == "" {
-		actionError(w, "No required param 'ID' or ID is empty")
+		s.actionError(w, "No required param 'ID' or ID is empty")
 		return
 	}
 
-	newURL, err := Repo.Get(id)
+	newURL, err := s.Repo.Get(id)
 
 	if err != nil {
-		actionError(w, "CAN'T GET SHORT LINK FROM REPO")
+		s.actionError(w, "CAN'T GET SHORT LINK FROM REPO")
 		return
 	}
 
 	http.Redirect(w, r, newURL, http.StatusTemporaryRedirect)
 }
 
-func actionPing(w http.ResponseWriter, r *http.Request) {
-	err := Repo.Ping()
+func (s *MyServer) actionPing(w http.ResponseWriter, r *http.Request) {
+	err := s.Repo.Ping()
 
 	if err != nil {
-		Logger.Infoln("CAN'T OPEN DATABASE CONNECT")
-		Logger.Infoln(err)
+		s.Logger.Infoln("CAN'T OPEN DATABASE CONNECT")
+		s.Logger.Infoln(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -196,20 +139,20 @@ func actionPing(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func actionTest(w http.ResponseWriter, r *http.Request) {
+func (s *MyServer) actionTest(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/")
 
 	if id == "" {
-		actionError(w, "No required param 'ID' or ID is empty")
+		s.actionError(w, "No required param 'ID' or ID is empty")
 		return
 	}
 
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
-	Logger.Debugln(string(body))
+	s.Logger.Debugln(string(body))
 
 	if err != nil {
-		actionError(w, "CAN'T READ BODY")
+		s.actionError(w, "CAN'T READ BODY")
 		return
 	}
 
@@ -218,24 +161,24 @@ func actionTest(w http.ResponseWriter, r *http.Request) {
 	_, errWrite := w.Write(body)
 
 	if errWrite != nil {
-		actionError(w, "CAN'T WRITE BODY")
+		s.actionError(w, "CAN'T WRITE BODY")
 		return
 	}
 }
-func actionShorten(w http.ResponseWriter, r *http.Request) {
+func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 	var answerStatus = http.StatusCreated
-	Logger.Debugln("Start Shorten")
+	s.Logger.Debugln("Start Shorten")
 
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 
 	if err != nil {
-		actionError(w, "CAN'T READ BODY FROM REQUEST")
+		s.actionError(w, "CAN'T READ BODY FROM REQUEST")
 		return
 	}
 
 	if string(body) == "" {
-		actionError(w, "EMPTY BODY")
+		s.actionError(w, "EMPTY BODY")
 		return
 	}
 
@@ -245,11 +188,11 @@ func actionShorten(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(body, &request)
 
 	if err != nil {
-		actionError(w, "CAN'T UNMARSHAL JSON BODY.")
+		s.actionError(w, "CAN'T UNMARSHAL JSON BODY.")
 		return
 	}
 
-	newURL, err := Repo.CalcAndCreate(request.URL)
+	newURL, err := s.Repo.CalcAndCreate(request.URL)
 
 	var perr *pgconn.PgError
 
@@ -260,18 +203,18 @@ func actionShorten(w http.ResponseWriter, r *http.Request) {
 		 * но чтобы выполнить букву задания                                    *
 		 * делаем повторное получение shorturl из БД.                          *
 		 ***********************************************************************/
-		newURL, err = Repo.GetByURL(request.URL)
+		newURL, err = s.Repo.GetByURL(request.URL)
 		if err != nil {
-			actionError(w, "CAN'T RECEIVE SHORTURL FROM DB")
+			s.actionError(w, "CAN'T RECEIVE SHORTURL FROM DB")
 			return
 		}
 		answerStatus = http.StatusConflict
 	}
 
-	_, err = Repo.Unload()
+	_, err = s.Repo.Unload()
 
 	if err != nil {
-		Logger.Errorln("CANT SAVE REPO TO FILE")
+		s.Logger.Errorln("CANT SAVE REPO TO FILE")
 	}
 
 	response.Result = conf.RetAdd + "/" + newURL
@@ -281,36 +224,36 @@ func actionShorten(w http.ResponseWriter, r *http.Request) {
 
 	res, err := json.Marshal(response)
 	if err != nil {
-		actionError(w, "CAN'T UNMARSHAL JSON RESULT.")
+		s.actionError(w, "CAN'T UNMARSHAL JSON RESULT.")
 		return
 	}
 
 	_, errRes := w.Write(res)
 
 	if errRes != nil {
-		actionError(w, "CAN'T WRITE RESULT BODY.")
+		s.actionError(w, "CAN'T WRITE RESULT BODY.")
 		return
 	}
 }
 
-func actionBatch(w http.ResponseWriter, r *http.Request) {
+func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 	var batchError error = nil
 
 	body, err := io.ReadAll(r.Body)
 
 	if err != nil {
-		actionError(w, "CAN'T READ BODY FROM REQUEST")
+		s.actionError(w, "CAN'T READ BODY FROM REQUEST")
 		return
 	}
 
 	defer r.Body.Close()
 
 	if string(body) == "" {
-		actionError(w, "EMPTY BODY")
+		s.actionError(w, "EMPTY BODY")
 		return
 	}
 
-	Logger.Debugln(string(body))
+	s.Logger.Debugln(string(body))
 
 	input := []RequestShortenBatchUnit{}
 	output := []ResponseShortenBatchUnit{}
@@ -318,12 +261,12 @@ func actionBatch(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(body, &input)
 
 	if err != nil {
-		actionError(w, "CAN'T UNMARSHAL JSON BODY.")
+		s.actionError(w, "CAN'T UNMARSHAL JSON BODY.")
 		return
 	}
 
 	for _, v := range input {
-		shorturl, err := Repo.CalcAndCreateManualCommit(v.OriginalURL)
+		shorturl, err := s.Repo.CalcAndCreateManualCommit(v.OriginalURL)
 		if err != nil {
 			batchError = err
 			break
@@ -336,46 +279,46 @@ func actionBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if batchError != nil {
-		Repo.RollBack()
-		actionError(w, "CAN'T BATCH LOAD"+fmt.Sprintf("%s", batchError))
+		s.Repo.RollBack()
+		s.actionError(w, "CAN'T BATCH LOAD"+fmt.Sprintf("%s", batchError))
 	}
 
-	Repo.Commit()
+	s.Repo.Commit()
 
 	w.Header().Set("Content-type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
 	res, err := json.Marshal(output)
 	if err != nil {
-		actionError(w, "CAN'T UNMARSHAL JSON RESULT.")
+		s.actionError(w, "CAN'T UNMARSHAL JSON RESULT.")
 		return
 	}
 
 	_, errRes := w.Write(res)
 
 	if errRes != nil {
-		actionError(w, "CAN'T WRITE RESULT BODY.")
+		s.actionError(w, "CAN'T WRITE RESULT BODY.")
 		return
 	}
 }
 
-func actionStart(next http.Handler) http.Handler {
+func (s *MyServer) actionStart(next http.Handler) http.Handler {
 	f := func(w http.ResponseWriter, r *http.Request) {
-		Logger.Debugln(fmt.Sprintf("Req: %s %s\n", r.Host, r.URL.Path))
+		s.Logger.Debugln(fmt.Sprintf("Req: %s %s\n", r.Host, r.URL.Path))
 
 		begTime := time.Now()
 		uri := r.RequestURI
 		method := r.Method
 
-		responseData := &responseData{
-			status: 0,
-			size:   0,
+		responseData := &models.ResponseData{
+			Status: 0,
+			Size:   0,
 		}
 
-		lw := CustomResponseWriter{
+		lw := models.CustomResponseWriter{
 			ResponseWriter: w,
-			responseData:   responseData,
-			needGZip:       false,
+			ResponseData:   responseData,
+			NeedGZip:       false,
 		}
 
 		acceptEncodings := r.Header.Values("Accept-Encoding")
@@ -384,19 +327,19 @@ func actionStart(next http.Handler) http.Handler {
 			acceptEncoding := strings.Split(encodingLine, ",")
 			for _, encoding := range acceptEncoding {
 				if encoding == "gzip" {
-					lw.needGZip = true
+					lw.NeedGZip = true
 					break
 				}
 			}
 		}
 
-		Logger.Debugln(r.Header.Get("Content-Encoding"))
+		s.Logger.Debugln(r.Header.Get("Content-Encoding"))
 
 		if r.Header.Get("Content-Encoding") == "gzip" {
 			buf, err := io.ReadAll(r.Body) // handle the error
 
 			if err != nil {
-				actionError(w, "CAN'T CREATE NEW BUFFER")
+				s.actionError(w, "CAN'T CREATE NEW BUFFER")
 				return
 			}
 			readedBody := io.NopCloser(bytes.NewBuffer(buf))
@@ -404,7 +347,7 @@ func actionStart(next http.Handler) http.Handler {
 			gz, err := gzip.NewReader(readedBody)
 
 			if err != nil {
-				actionError(w, "CAN'T CREATE GZ READER")
+				s.actionError(w, "CAN'T CREATE GZ READER")
 				return
 			}
 
@@ -414,33 +357,42 @@ func actionStart(next http.Handler) http.Handler {
 
 		duration := time.Since(begTime)
 
-		Logger.Infoln(
+		s.Logger.Infoln(
 			"uri", uri,
 			"method", method,
 			"duration", duration,
-			"size", responseData.size,
-			"status", responseData.status,
+			"size", responseData.Size,
+			"status", responseData.Status,
 		)
 	}
 	return http.HandlerFunc(f)
 }
 
-func NewRouter(logger *zap.SugaredLogger, repo repository.LinkRepoDB) *chi.Mux {
-	Logger = logger
-	Repo = repo
+func NewServer(log logger.MyLogger, repo repository.LinkRepoDB) (*MyServer, error) {
+	return &MyServer{
+		Logger: log,
+		Repo:   repo,
+	}, nil
+}
 
+func NewRouter(log logger.MyLogger, repo repository.LinkRepoDB) *chi.Mux {
 	R := chi.NewRouter()
+	server, err := NewServer(log, repo)
 
-	R.Use(actionStart)
+	if err != nil {
+		log.Errorln("CAN'T CREATE SERVER")
+	}
+
+	R.Use(server.actionStart)
 
 	R.Route("/", func(r chi.Router) {
-		r.Post("/", actionCreateURL)
-		r.Post("/api/shorten", actionShorten)
-		r.Post("/api/shorten/batch", actionBatch)
-		r.Get("/{id}", actionRedirect)
-		r.Get("/ping", actionPing)
-		r.Get("/tst", actionTest)
-		r.Post("/tst", actionTest)
+		r.Post("/", server.actionCreateURL)
+		r.Post("/api/shorten", server.actionShorten)
+		r.Post("/api/shorten/batch", server.actionBatch)
+		r.Get("/{id}", server.actionRedirect)
+		r.Get("/ping", server.actionPing)
+		r.Get("/tst", server.actionTest)
+		r.Post("/tst", server.actionTest)
 	})
 
 	return R

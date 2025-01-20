@@ -10,15 +10,10 @@ import (
 	"github.com/DmitryM7/short-url.git/internal/controller"
 	"github.com/DmitryM7/short-url.git/internal/logger"
 	"github.com/DmitryM7/short-url.git/internal/repository"
-	"go.uber.org/zap"
-)
-
-var (
-	sugar *zap.SugaredLogger
 )
 
 func main() {
-	sugar = logger.NewLogger()
+	sugar := logger.NewLogger()
 
 	sugar.Infoln("RUN...")
 

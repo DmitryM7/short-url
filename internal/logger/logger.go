@@ -4,7 +4,11 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewLogger() *zap.SugaredLogger {
+type MyLogger struct {
+	*zap.SugaredLogger
+}
+
+func NewLogger() MyLogger {
 	var (
 		logger    *zap.Logger
 		errLogger error
@@ -18,5 +22,5 @@ func NewLogger() *zap.SugaredLogger {
 
 	defer logger.Sync() //nolint:errcheck // unnessesary error checking
 
-	return logger.Sugar()
+	return MyLogger{SugaredLogger: logger.Sugar()}
 }

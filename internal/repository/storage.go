@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"go.uber.org/zap"
+	"github.com/DmitryM7/short-url.git/internal/logger"
 )
 
 const (
@@ -18,13 +18,13 @@ const (
 type LinkRepo struct {
 	repo     map[string]string
 	SavePath string
-	Logger   *zap.SugaredLogger
+	Logger   logger.MyLogger
 }
 
-func NewLinkRepo(exportFile string, logger *zap.SugaredLogger) LinkRepo {
+func NewLinkRepo(exportFile string, lg logger.MyLogger) LinkRepo {
 	return LinkRepo{
 		SavePath: exportFile,
-		Logger:   logger,
+		Logger:   lg,
 		repo:     make(map[string]string, repoLength),
 	}
 }
