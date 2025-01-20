@@ -16,8 +16,8 @@ const (
 )
 
 type LinkRecord struct {
-	ShortUrl string
-	Url      string
+	ShortURL string
+	URL      string
 }
 
 type LinkRepo struct {
