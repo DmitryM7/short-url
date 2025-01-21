@@ -21,6 +21,16 @@ func NewInDBStorage(lg logger.MyLogger, dsn string) (*InDBStorage, error) {
 
 	err := st.connect()
 
+	if err != nil {
+		return &st, err
+	}
+
+	err = st.createSchema()
+
+	if err != nil {
+		return &st, err
+	}
+
 	return &st, err
 }
 
@@ -36,6 +46,29 @@ func (l *InDBStorage) connect() error {
 	}
 
 	l.db = db
+
+	return nil
+}
+
+func (l *InDBStorage) createSchema() error {
+	var tableName string
+
+	row := l.db.QueryRowContext(context.Background(), "SELECT schemaname from pg_stat_user_tables WHERE relname LIKE 'repo'")
+
+	err := row.Scan(&tableName)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			_, err = l.db.ExecContext(context.Background(), `CREATE TABLE repo ("id" SERIAL PRIMARY KEY,
+			                                                                   "shorturl" VARCHAR NOT NULL UNIQUE,
+																			"url" VARCHAR NOT NULL UNIQUE)`)
+			if err != nil {
+				return err
+			}
+		}
+
+		return err
+	}
 
 	return nil
 }
