@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	"github.com/DmitryM7/short-url.git/internal/logger"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type InDBStorage struct {
@@ -22,12 +23,14 @@ func NewInDBStorage(lg logger.MyLogger, dsn string) (*InDBStorage, error) {
 	err := st.connect()
 
 	if err != nil {
+		lg.Infoln("HERE1")
 		return &st, err
 	}
 
 	err = st.createSchema()
 
 	if err != nil {
+		lg.Infoln("HERE2")
 		return &st, err
 	}
 
