@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -13,25 +12,33 @@ import (
 )
 
 func main() {
-	sugar := logger.NewLogger()
+	lg := logger.NewLogger()
 
-	sugar.Infoln("RUN...")
+	lg.Infoln("RUN...")
 
 	conf.ParseFlags()
 	flag.Parse()
 	conf.ParseEnv()
 
-	repo := repository.NewLinkRepoDB(sugar, conf.FilePath, conf.DSN)
+	repoConf := repository.StorageConfig{Logger: lg}
 
-	err := repo.Load()
-
-	if err != nil {
-		sugar.Infoln("CAN'T LOAD STORAGE. " + fmt.Sprintf("%s", err) + " . USE EMPTY REPO.")
+	if conf.DSN != "" {
+		repoConf.StorageType = repository.DBType
+		repoConf.DatabaseDSN = conf.DSN
+	} else {
+		repoConf.StorageType = repository.FileType
+		repoConf.FilePath = conf.FilePath
 	}
 
-	r := controller.NewRouter(sugar, repo)
+	repo, err := repository.NewStorageService(repoConf)
 
-	sugar.Infoln("Starting server", "bndAdd", conf.BndAdd)
+	if err != nil {
+		lg.Fatalln("CANT INIT REPO")
+	}
+
+	r := controller.NewRouter(lg, repo)
+
+	lg.Infoln("Starting server", "bndAdd", conf.BndAdd)
 
 	server := &http.Server{
 		Addr:         conf.BndAdd,
@@ -41,6 +48,6 @@ func main() {
 	}
 
 	if errServ := server.ListenAndServe(); errServ != nil {
-		sugar.Fatalw(errServ.Error(), "event", "start server")
+		lg.Fatalw(errServ.Error(), "event", "start server")
 	}
 }

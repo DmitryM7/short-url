@@ -41,7 +41,7 @@ type (
 
 	MyServer struct {
 		Logger logger.MyLogger
-		Repo   repository.LinkRepoDB
+		Repo   repository.StorageService
 	}
 )
 
@@ -72,7 +72,7 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL, err := s.Repo.CalcAndCreate(url)
+	newURL, err := s.Repo.Create(url)
 
 	var perr *pgconn.PgError
 
@@ -98,8 +98,6 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	if errWrite != nil {
 		s.Logger.Errorln("CANT WRITE DATA TO RESPONSE")
 	}
-
-	_, err = s.Repo.Unload()
 
 	if err != nil {
 		s.Logger.Errorln("CANT SAVE REPO:" + fmt.Sprintf("%s", err))
@@ -127,11 +125,8 @@ func (s *MyServer) actionRedirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MyServer) actionPing(w http.ResponseWriter, r *http.Request) {
-	err := s.Repo.Ping()
-
-	if err != nil {
-		s.Logger.Infoln("CAN'T OPEN DATABASE CONNECT")
-		s.Logger.Infoln(err)
+	if !s.Repo.Ping() {
+		s.Logger.Infoln("NO DATABASE PING")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -192,7 +187,7 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL, err := s.Repo.CalcAndCreate(request.URL)
+	newURL, err := s.Repo.Create(request.URL)
 
 	var perr *pgconn.PgError
 
@@ -210,8 +205,6 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 		}
 		answerStatus = http.StatusConflict
 	}
-
-	_, err = s.Repo.Unload()
 
 	if err != nil {
 		s.Logger.Errorln("CANT SAVE REPO TO FILE")
@@ -237,8 +230,6 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
-	var batchError error = nil
-
 	body, err := io.ReadAll(r.Body)
 
 	if err != nil {
@@ -265,25 +256,25 @@ func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, v := range input {
-		shorturl, err := s.Repo.CalcAndCreateManualCommit(v.OriginalURL)
-		if err != nil {
-			batchError = err
-			break
-		}
+	lnkRecs := []repository.LinkRecord{}
 
+	for _, v := range input {
+		lnkRecs = append(lnkRecs, repository.LinkRecord{URL: v.OriginalURL, CorrelationID: v.CorrelationID})
+	}
+
+	lnkResRecs, err := s.Repo.BatchCreate(lnkRecs)
+
+	if err != nil {
+		s.actionError(w, "CANT SAVE DATA IN REPO")
+		return
+	}
+
+	for _, v := range lnkResRecs {
 		output = append(output, ResponseShortenBatchUnit{
 			CorrelationID: v.CorrelationID,
-			ShortURL:      conf.RetAdd + "/" + shorturl,
+			ShortURL:      conf.RetAdd + "/" + v.ShortURL,
 		})
 	}
-
-	if batchError != nil {
-		s.Repo.RollBack()
-		s.actionError(w, "CAN'T BATCH LOAD"+fmt.Sprintf("%s", batchError))
-	}
-
-	s.Repo.Commit()
 
 	w.Header().Set("Content-type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -370,14 +361,14 @@ func (s *MyServer) actionStart(next http.Handler) http.Handler {
 	return http.HandlerFunc(f)
 }
 
-func NewServer(log logger.MyLogger, repo repository.LinkRepoDB) (*MyServer, error) {
+func NewServer(log logger.MyLogger, repo repository.StorageService) (*MyServer, error) {
 	return &MyServer{
 		Logger: log,
 		Repo:   repo,
 	}, nil
 }
 
-func NewRouter(log logger.MyLogger, repo repository.LinkRepoDB) *chi.Mux {
+func NewRouter(log logger.MyLogger, repo repository.StorageService) *chi.Mux {
 	R := chi.NewRouter()
 	server, err := NewServer(log, repo)
 

@@ -19,7 +19,7 @@ import (
 )
 
 var Logger logger.MyLogger
-var Repo repository.LinkRepoDB
+var Repo repository.StorageService
 
 func init() { //nolint: gochecknoinits //see chapter "Setting Up Test Data" in https://www.bytesizego.com/blog/init-function-golang#:~:text=Reasons%20to%20Avoid%20Using%20the%20init%20Function%20in%20Go&text=Since%20it%20runs%20automatically%2C%20any,state%20changes%20without%20explicit%20calls
 	conf.ParseFlags()
@@ -28,10 +28,25 @@ func init() { //nolint: gochecknoinits //see chapter "Setting Up Test Data" in h
 }
 
 func TestMain(m *testing.M) {
+	var err error
 	flag.Parse()
 	conf.ParseEnv()
 
-	Repo = repository.NewLinkRepoDB(Logger, conf.FilePath, conf.DSN)
+	repoConf := repository.StorageConfig{Logger: Logger}
+
+	if conf.DSN != "" {
+		repoConf.StorageType = repository.DBType
+		repoConf.DatabaseDSN = conf.DSN
+	} else {
+		repoConf.StorageType = repository.FileType
+		repoConf.FilePath = conf.FilePath
+	}
+
+	Repo, err = repository.NewStorageService(repoConf)
+
+	if err != nil {
+		Logger.Fatalln("CAN'T CREATE REPO")
+	}
 
 	os.Exit(m.Run())
 }
@@ -119,7 +134,11 @@ func TestActionCreateURL(t *testing.T) {
 }
 
 func TestActionRedirect(t *testing.T) {
-	Repo.Create("b8da4f2d", "www.ya.ru")
+	_, err := Repo.Create("www.ya.ru")
+
+	if err != nil {
+		Logger.Fatalln("CAN'T CREATE RECORD")
+	}
 
 	type args struct {
 		method string
