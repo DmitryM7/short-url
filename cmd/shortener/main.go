@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -9,35 +10,36 @@ import (
 	"github.com/DmitryM7/short-url.git/internal/controller"
 	"github.com/DmitryM7/short-url.git/internal/logger"
 	"github.com/DmitryM7/short-url.git/internal/repository"
-	"go.uber.org/zap"
-)
-
-var (
-	repo  repository.LinkRepo
-	sugar *zap.SugaredLogger
 )
 
 func main() {
+	lg := logger.NewLogger()
 
-	sugar = logger.NewLogger()
-
-	sugar.Infoln("RUN...")
+	lg.Infoln("RUN...")
 
 	conf.ParseFlags()
 	flag.Parse()
 	conf.ParseEnv()
 
-	repo = repository.NewLinkRepo(conf.FilePath, sugar)
+	repoConf := repository.StorageConfig{Logger: lg}
 
-	err := repo.Load()
-
-	if err != nil {
-		sugar.Infoln("CAN'T LOAD STORAGE FROM FILE. USE EMPTY REPO.")
+	if conf.DSN != "" {
+		repoConf.StorageType = repository.DBType
+		repoConf.DatabaseDSN = conf.DSN
+	} else {
+		repoConf.StorageType = repository.FileType
+		repoConf.FilePath = conf.FilePath
 	}
 
-	r := controller.NewRouter(sugar, repo)
+	repo, err := repository.NewStorageService(repoConf)
 
-	sugar.Infoln("Starting server", "bndAdd", conf.BndAdd)
+	if err != nil {
+		lg.Fatalln("CANT INIT REPO" + fmt.Sprintf("%#v", err))
+	}
+
+	r := controller.NewRouter(lg, repo)
+
+	lg.Infoln("Starting server", "bndAdd", conf.BndAdd)
 
 	server := &http.Server{
 		Addr:         conf.BndAdd,
@@ -47,7 +49,6 @@ func main() {
 	}
 
 	if errServ := server.ListenAndServe(); errServ != nil {
-		sugar.Fatalw(errServ.Error(), "event", "start server")
+		lg.Fatalw(errServ.Error(), "event", "start server")
 	}
-
 }

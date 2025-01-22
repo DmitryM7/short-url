@@ -18,19 +18,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func init() { //nolint: gochecknoinits //see chapter "Setting Up Test Data" in https://www.bytesizego.com/blog/init-function-golang#:~:text=Reasons%20to%20Avoid%20Using%20the%20init%20Function%20in%20Go&text=Since%20it%20runs%20automatically%2C%20any,state%20changes%20without%20explicit%20calls
+var Logger logger.MyLogger
+var Repo repository.StorageService
 
+func init() { //nolint: gochecknoinits //see chapter "Setting Up Test Data" in https://www.bytesizego.com/blog/init-function-golang#:~:text=Reasons%20to%20Avoid%20Using%20the%20init%20Function%20in%20Go&text=Since%20it%20runs%20automatically%2C%20any,state%20changes%20without%20explicit%20calls
 	conf.ParseFlags()
 
 	Logger = logger.NewLogger()
-
 }
 
 func TestMain(m *testing.M) {
+	var err error
 	flag.Parse()
 	conf.ParseEnv()
 
-	Repo = repository.NewLinkRepo(conf.FilePath, Logger)
+	repoConf := repository.StorageConfig{Logger: Logger}
+
+	if conf.DSN != "" {
+		repoConf.StorageType = repository.DBType
+		repoConf.DatabaseDSN = conf.DSN
+	} else {
+		repoConf.StorageType = repository.FileType
+		repoConf.FilePath = conf.FilePath
+	}
+
+	Repo, err = repository.NewStorageService(repoConf)
+
+	if err != nil {
+		Logger.Fatalln("CAN'T CREATE REPO")
+	}
 
 	os.Exit(m.Run())
 }
@@ -99,7 +115,9 @@ func TestActionCreateURL(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			actionCreateURL(w, r)
+			server, err := NewServer(Logger, Repo)
+			assert.Nil(t, err, "NewServer create with error")
+			server.actionCreateURL(w, r)
 			res := w.Result()
 			defer res.Body.Close()
 
@@ -116,8 +134,11 @@ func TestActionCreateURL(t *testing.T) {
 }
 
 func TestActionRedirect(t *testing.T) {
+	_, err := Repo.Create("www.ya.ru")
 
-	Repo.Create("b8da4f2d", "www.ya.ru")
+	if err != nil {
+		Logger.Fatalln("CAN'T CREATE RECORD")
+	}
 
 	type args struct {
 		method string
@@ -169,7 +190,9 @@ func TestActionRedirect(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := httptest.NewRequest(tt.args.method, tt.args.url, nil)
 			w := httptest.NewRecorder()
-			actionRedirect(w, r)
+			server, err := NewServer(Logger, Repo)
+			assert.Nil(t, err, "NewServer create with error")
+			server.actionRedirect(w, r)
 			res := w.Result()
 			body, _ := io.ReadAll(res.Body)
 			t.Log(string(body))
@@ -179,7 +202,6 @@ func TestActionRedirect(t *testing.T) {
 }
 
 func TestActionShorten(t *testing.T) {
-
 	type (
 		Args struct {
 			URL  string
@@ -231,7 +253,10 @@ func TestActionShorten(t *testing.T) {
 
 			w := httptest.NewRecorder()
 
-			actionShorten(w, r)
+			server, err := NewServer(Logger, Repo)
+			assert.Nil(t, err, "NewServer create with error")
+
+			server.actionShorten(w, r)
 			res := w.Result()
 			assert.Equal(t, tt.Want.StatusCode, res.StatusCode)
 

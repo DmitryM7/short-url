@@ -4,37 +4,23 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/DmitryM7/short-url.git/internal/conf"
+	"github.com/DmitryM7/short-url.git/internal/logger"
+	"github.com/DmitryM7/short-url.git/internal/models"
 	"github.com/DmitryM7/short-url.git/internal/repository"
 	"github.com/go-chi/chi"
-	"go.uber.org/zap"
-)
-
-var (
-	R      *chi.Mux
-	Logger *zap.SugaredLogger
-	Repo   repository.LinkRepo
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type (
-	responseData struct {
-		status int
-		size   int
-	}
-
-	CustomResponseWriter struct {
-		http.ResponseWriter
-		responseData *responseData
-		needGZip     bool
-	}
-
 	Request struct {
 		URL string `json:"url"`
 	}
@@ -42,129 +28,126 @@ type (
 	Response struct {
 		Result string `json:"result"`
 	}
+
+	RequestShortenBatchUnit struct {
+		CorrelationID string `json:"correlation_id"`
+		OriginalURL   string `json:"original_url"`
+	}
+
+	ResponseShortenBatchUnit struct {
+		CorrelationID string `json:"correlation_id"`
+		ShortURL      string `json:"short_url"`
+	}
+
+	MyServer struct {
+		Logger logger.MyLogger
+		Repo   repository.StorageService
+	}
 )
 
-func (r *CustomResponseWriter) isContentTypeNeedZip() bool {
-	needGZip := false
-
-	headers := r.Header().Values("Content-type")
-
-	for _, header := range headers {
-		if header == "application/json" || header == "text/html" {
-			needGZip = true
-		}
-	}
-	return needGZip
-}
-func (r *CustomResponseWriter) Write(b []byte) (int, error) {
-	var (
-		size int
-		err  error
-		gz   *gzip.Writer
-	)
-
-	if r.needGZip && r.isContentTypeNeedZip() {
-		gz, err = gzip.NewWriterLevel(r.ResponseWriter, gzip.BestSpeed)
-
-		if err != nil {
-			size = 0
-			err = fmt.Errorf("CANT CREATE GZIP")
-		} else {
-			Logger.Debugln("DO ZIPPING")
-			size, err = gz.Write(b)
-		}
-		defer gz.Close()
-	} else {
-		size, err = r.ResponseWriter.Write(b)
-	}
-
-	r.responseData.size += size
-	return size, err
-}
-
-func (r *CustomResponseWriter) WriteHeader(statusCode int) {
-	if r.needGZip && r.isContentTypeNeedZip() {
-		r.Header().Set("Content-encoding", "gzip")
-	}
-	r.ResponseWriter.WriteHeader(statusCode)
-	r.responseData.status = statusCode
-}
-
-func actionError(w http.ResponseWriter, e string) {
-	Logger.Infoln(e)
+func (s *MyServer) actionError(w http.ResponseWriter, e string) {
+	s.Logger.Infoln(e)
 	w.WriteHeader(http.StatusBadRequest)
 	_, err := w.Write([]byte(e))
 
 	if err != nil {
-		slog.Error("CAN'T WRITE ANSWER")
+		s.Logger.Error("CAN'T WRITE ANSWER")
 	}
 }
 
-func actionCreateURL(w http.ResponseWriter, r *http.Request) {
+func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
+	var answerStatus = http.StatusCreated
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 
 	if err != nil {
-		actionError(w, "Error read query request body")
+		s.actionError(w, "Error read query request body")
 		return
 	}
 
 	url := string(body)
 
 	if url == "" {
-		actionError(w, "Body was send, but empty")
+		s.actionError(w, "Body was send, but empty")
 		return
 	}
 
-	newURL := Repo.CreateAndSave(url)
+	newURL, err := s.Repo.Create(url)
+
+	var perr *pgconn.PgError
+
+	if errors.As(err, &perr) && perr.Code == pgerrcode.UniqueViolation {
+		/***********************************************************************
+		 * Бесмысленная история для стратегии №2 задания итерации 13           *
+		 * (мы можем сделать вставку т. и т. к., мы уже знаем сокращенный URL) *
+		 * но чтобы выполнить букву задания                                    *
+		 * делаем повторное получение shorturl из БД.                          *
+		 ***********************************************************************/
+		newURL, err = s.Repo.GetByURL(url)
+		if err != nil {
+			s.actionError(w, "CAN'T RECEIVE SHORTURL FROM DB")
+			return
+		}
+		answerStatus = http.StatusConflict
+	}
 
 	w.Header().Set("Content-type", "text/plain")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(answerStatus)
 	_, errWrite := w.Write([]byte(conf.RetAdd + "/" + newURL))
 
 	if errWrite != nil {
-		Logger.Errorln("CANT WRITE DATA TO RESPONSE")
+		s.Logger.Errorln("CANT WRITE DATA TO RESPONSE")
 	}
 
-	_, err = Repo.Unload()
-
 	if err != nil {
-		Logger.Errorln("CANT SAVE REPO TO FILE")
+		s.Logger.Errorln("CANT SAVE REPO:" + fmt.Sprintf("%s", err))
 	}
 }
 
-func actionRedirect(w http.ResponseWriter, r *http.Request) {
+func (s *MyServer) actionRedirect(w http.ResponseWriter, r *http.Request) {
+	s.Logger.Debugln("Start Redirect")
+
 	id := strings.TrimPrefix(r.URL.Path, "/")
 
 	if id == "" {
-		actionError(w, "No required param 'ID' or ID is empty")
+		s.actionError(w, "No required param 'ID' or ID is empty")
 		return
 	}
 
-	newURL, err := Repo.Get(id)
+	newURL, err := s.Repo.Get(id)
 
 	if err != nil {
-		actionError(w, "CAN'T GET SHORT LINK FROM REPO")
+		s.actionError(w, "CAN'T GET SHORT LINK FROM REPO")
 		return
 	}
 
 	http.Redirect(w, r, newURL, http.StatusTemporaryRedirect)
 }
 
-func actionTest(w http.ResponseWriter, r *http.Request) {
+func (s *MyServer) actionPing(w http.ResponseWriter, r *http.Request) {
+	if !s.Repo.Ping() {
+		s.Logger.Infoln("NO DATABASE PING")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *MyServer) actionTest(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/")
 
 	if id == "" {
-		actionError(w, "No required param 'ID' or ID is empty")
+		s.actionError(w, "No required param 'ID' or ID is empty")
 		return
 	}
 
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
-	Logger.Debugln(string(body))
+	s.Logger.Debugln(string(body))
 
 	if err != nil {
-		actionError(w, "CAN'T READ BODY")
+		s.actionError(w, "CAN'T READ BODY")
 		return
 	}
 
@@ -173,21 +156,24 @@ func actionTest(w http.ResponseWriter, r *http.Request) {
 	_, errWrite := w.Write(body)
 
 	if errWrite != nil {
-		actionError(w, "CAN'T WRITE BODY")
+		s.actionError(w, "CAN'T WRITE BODY")
 		return
 	}
 }
-func actionShorten(w http.ResponseWriter, r *http.Request) {
+func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
+	var answerStatus = http.StatusCreated
+	s.Logger.Debugln("Start Shorten")
+
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 
 	if err != nil {
-		actionError(w, "CAN'T READ BODY FROM REQUEST")
+		s.actionError(w, "CAN'T READ BODY FROM REQUEST")
 		return
 	}
 
 	if string(body) == "" {
-		actionError(w, "EMPTY BODY")
+		s.actionError(w, "EMPTY BODY")
 		return
 	}
 
@@ -197,52 +183,135 @@ func actionShorten(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(body, &request)
 
 	if err != nil {
-		actionError(w, "CAN'T UNMARSHAL JSON BODY.")
+		s.actionError(w, "CAN'T UNMARSHAL JSON BODY.")
 		return
 	}
 
-	newURL := Repo.CreateAndSave(request.URL)
+	newURL, err := s.Repo.Create(request.URL)
 
-	_, err = Repo.Unload()
+	var perr *pgconn.PgError
+
+	if errors.As(err, &perr) && perr.Code == pgerrcode.UniqueViolation {
+		/***********************************************************************
+		 * Бесмысленная история для стратегии №2 задания итерации 13           *
+		 * (мы можем сделать вставку т. и т. к., мы уже знаем сокращенный URL) *
+		 * но чтобы выполнить букву задания                                    *
+		 * делаем повторное получение shorturl из БД.                          *
+		 ***********************************************************************/
+		newURL, err = s.Repo.GetByURL(request.URL)
+		if err != nil {
+			s.actionError(w, "CAN'T RECEIVE SHORTURL FROM DB")
+			return
+		}
+		answerStatus = http.StatusConflict
+	}
 
 	if err != nil {
-		Logger.Errorln("CANT SAVE REPO TO FILE")
+		s.Logger.Errorln("CANT SAVE REPO TO FILE")
 	}
 
 	response.Result = conf.RetAdd + "/" + newURL
 
 	w.Header().Set("Content-type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(answerStatus)
 
 	res, err := json.Marshal(response)
 	if err != nil {
-		actionError(w, "CAN'T UNMARSHAL JSON RESULT.")
+		s.actionError(w, "CAN'T UNMARSHAL JSON RESULT.")
 		return
 	}
 
 	_, errRes := w.Write(res)
 
 	if errRes != nil {
-		actionError(w, "CAN'T WRITE RESULT BODY.")
+		s.actionError(w, "CAN'T WRITE RESULT BODY.")
 		return
 	}
 }
 
-func actionStart(next http.Handler) http.Handler {
+func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+
+	if err != nil {
+		s.actionError(w, "CAN'T READ BODY FROM REQUEST")
+		return
+	}
+
+	defer r.Body.Close()
+
+	if string(body) == "" {
+		s.actionError(w, "EMPTY BODY")
+		return
+	}
+
+	s.Logger.Debugln(string(body))
+
+	input := []RequestShortenBatchUnit{}
+	output := []ResponseShortenBatchUnit{}
+
+	err = json.Unmarshal(body, &input)
+
+	if err != nil {
+		s.actionError(w, "CAN'T UNMARSHAL JSON BODY.")
+		return
+	}
+
+	lnkRecs := []repository.LinkRecord{}
+
+	for _, v := range input {
+		lnkRecs = append(lnkRecs, repository.LinkRecord{URL: v.OriginalURL, CorrelationID: v.CorrelationID})
+	}
+
+	lnkResRecs, err := s.Repo.BatchCreate(lnkRecs)
+
+	if err != nil {
+		s.actionError(w, "CANT SAVE DATA IN REPO")
+		return
+	}
+
+	for _, v := range lnkResRecs {
+		output = append(output, ResponseShortenBatchUnit{
+			CorrelationID: v.CorrelationID,
+			ShortURL:      conf.RetAdd + "/" + v.ShortURL,
+		})
+	}
+
+	w.Header().Set("Content-type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	res, err := json.Marshal(output)
+	if err != nil {
+		s.actionError(w, "CAN'T UNMARSHAL JSON RESULT.")
+		return
+	}
+
+	_, errRes := w.Write(res)
+
+	if errRes != nil {
+		s.actionError(w, "CAN'T WRITE RESULT BODY.")
+		return
+	}
+}
+
+func (s *MyServer) actionStart(next http.Handler) http.Handler {
 	f := func(w http.ResponseWriter, r *http.Request) {
+		s.Logger.Debugln(fmt.Sprintf("Req: %s %s\n", r.Host, r.URL.Path))
+
 		begTime := time.Now()
 		uri := r.RequestURI
 		method := r.Method
 
-		responseData := &responseData{
-			status: 0,
-			size:   0,
+		responseData := &models.ResponseData{
+			Status: 0,
+			Size:   0,
+			Logger: s.Logger,
 		}
 
-		lw := CustomResponseWriter{
+		lw := models.CustomResponseWriter{
 			ResponseWriter: w,
-			responseData:   responseData,
-			needGZip:       false,
+			ResponseData:   responseData,
+			NeedGZip:       false,
+			Logger:         s.Logger,
 		}
 
 		acceptEncodings := r.Header.Values("Accept-Encoding")
@@ -251,19 +320,19 @@ func actionStart(next http.Handler) http.Handler {
 			acceptEncoding := strings.Split(encodingLine, ",")
 			for _, encoding := range acceptEncoding {
 				if encoding == "gzip" {
-					lw.needGZip = true
+					lw.NeedGZip = true
 					break
 				}
 			}
 		}
 
-		Logger.Debugln(r.Header.Get("Content-Encoding"))
+		s.Logger.Debugln(r.Header.Get("Content-Encoding"))
 
 		if r.Header.Get("Content-Encoding") == "gzip" {
 			buf, err := io.ReadAll(r.Body) // handle the error
 
 			if err != nil {
-				actionError(w, "CAN'T CREATE NEW BUFFER")
+				s.actionError(w, "CAN'T CREATE NEW BUFFER")
 				return
 			}
 			readedBody := io.NopCloser(bytes.NewBuffer(buf))
@@ -271,7 +340,7 @@ func actionStart(next http.Handler) http.Handler {
 			gz, err := gzip.NewReader(readedBody)
 
 			if err != nil {
-				actionError(w, "CAN'T CREATE GZ READER")
+				s.actionError(w, "CAN'T CREATE GZ READER")
 				return
 			}
 
@@ -281,32 +350,42 @@ func actionStart(next http.Handler) http.Handler {
 
 		duration := time.Since(begTime)
 
-		Logger.Infoln(
+		s.Logger.Infoln(
 			"uri", uri,
 			"method", method,
 			"duration", duration,
-			"size", responseData.size,
-			"status", responseData.status,
+			"size", responseData.Size,
+			"status", responseData.Status,
 		)
 	}
 	return http.HandlerFunc(f)
 }
 
-func NewRouter(logger *zap.SugaredLogger, repo repository.LinkRepo) *chi.Mux {
+func NewServer(log logger.MyLogger, repo repository.StorageService) (*MyServer, error) {
+	return &MyServer{
+		Logger: log,
+		Repo:   repo,
+	}, nil
+}
 
-	Logger = logger
-	Repo = repo
-
+func NewRouter(log logger.MyLogger, repo repository.StorageService) *chi.Mux {
 	R := chi.NewRouter()
+	server, err := NewServer(log, repo)
 
-	R.Use(actionStart)
+	if err != nil {
+		log.Errorln("CAN'T CREATE SERVER")
+	}
+
+	R.Use(server.actionStart)
 
 	R.Route("/", func(r chi.Router) {
-		r.Post("/", actionCreateURL)
-		r.Post("/api/shorten", actionShorten)
-		r.Get("/{id}", actionRedirect)
-		r.Get("/tst", actionTest)
-		r.Post("/tst", actionTest)
+		r.Post("/", server.actionCreateURL)
+		r.Post("/api/shorten", server.actionShorten)
+		r.Post("/api/shorten/batch", server.actionBatch)
+		r.Get("/{id}", server.actionRedirect)
+		r.Get("/ping", server.actionPing)
+		r.Get("/tst", server.actionTest)
+		r.Post("/tst", server.actionTest)
 	})
 
 	return R
