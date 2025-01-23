@@ -16,6 +16,8 @@ type InMemoryStorage struct {
 }
 
 func NewInMemoryStorage(lg logger.MyLogger) (*InMemoryStorage, error) {
+	lg.Infoln("CREATE NEW IN MEMORE STORAGE")
+
 	return &InMemoryStorage{
 		Logger: lg,
 		Repo:   make(map[string]string, rLength),

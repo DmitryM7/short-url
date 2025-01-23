@@ -16,6 +16,7 @@ type InDBStorage struct {
 }
 
 func NewInDBStorage(lg logger.MyLogger, dsn string) (*InDBStorage, error) {
+	lg.Infoln("CREATE NEW DB STORAGE")
 	st := InDBStorage{
 		DatabaseDSN: dsn,
 		Logger:      lg,

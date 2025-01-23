@@ -16,6 +16,7 @@ type InFileStorage struct {
 }
 
 func NewInFileStorage(lg logger.MyLogger, exportFile string) (*InFileStorage, error) {
+	lg.Infoln("CREATE NEW IN FILE STORAGE")
 	inmem, err := NewInMemoryStorage(lg)
 	if err != nil {
 		return &InFileStorage{SavePath: exportFile}, err
