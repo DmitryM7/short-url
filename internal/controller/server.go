@@ -480,7 +480,7 @@ func NewServer(log logger.MyLogger, repo repository.StorageService) (*MyServer, 
 		Logger:        log,
 		Repo:          repo,
 		secretKey:     "KEY_FOR_SECRET",
-		userIDCounter: 10,
+		userIDCounter: int(time.Now().Unix()),
 	}, nil
 }
 
