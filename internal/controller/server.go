@@ -359,14 +359,15 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.Logger.Infoln("JSON:" + string(answ))
-
+	w.Header().Set("Content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(answ)
 
 	if err != nil {
 		s.actionError(w, "CAN'T WRITE ANSWER TO BODY")
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+
 }
 
 func (s *MyServer) sendAuthToken(w http.ResponseWriter) (int, error) {
