@@ -262,6 +262,7 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
+	s.Logger.Debugln("Start Batch")
 	body, err := io.ReadAll(r.Body)
 
 	if err != nil {
