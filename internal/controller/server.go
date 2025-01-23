@@ -473,9 +473,10 @@ func (s *MyServer) actionStart(next http.Handler) http.Handler {
 
 func NewServer(log logger.MyLogger, repo repository.StorageService) (*MyServer, error) {
 	return &MyServer{
-		Logger:    log,
-		Repo:      repo,
-		secretKey: "KEY_FOR_SECRET",
+		Logger:        log,
+		Repo:          repo,
+		secretKey:     "KEY_FOR_SECRET",
+		userIDCounter: 10,
 	}, nil
 }
 
