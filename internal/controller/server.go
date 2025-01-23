@@ -40,8 +40,10 @@ type (
 	}
 
 	MyServer struct {
-		Logger logger.MyLogger
-		Repo   repository.StorageService
+		Logger        logger.MyLogger
+		Repo          repository.StorageService
+		userIDCounter int
+		secretKey     string
 	}
 )
 
@@ -296,31 +298,12 @@ func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
-	newUserid := 1
-
-	secretKey := "KEY_FOR_SECRET"
-
-	jwtProvider := NewJwtProvider(time.Hour, secretKey)
-
-	tokenStr, err := jwtProvider.GetStr(secretKey, newUserid)
-
-	if err != nil {
-		s.Logger.Errorln("CAN'T CREATE JWT STRING")
-		s.actionError(w, "CAN'T CREATE JWT STRING")
-		return
-	}
+	jwtProvider := NewJwtProvider(time.Hour, s.secretKey)
 
 	cookie, err := r.Cookie("token")
 
 	if err != nil {
 		s.Logger.Infoln("NO COOKIE")
-
-		http.SetCookie(w, &http.Cookie{
-			Name:    "token",
-			Value:   tokenStr,
-			Expires: time.Now().Add(fiveMinutes * time.Minute),
-		})
-
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -330,12 +313,6 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 	userid, err := jwtProvider.GetUserID(cookie.Value)
 
 	if err != nil {
-		http.SetCookie(w, &http.Cookie{
-			Name:    "token",
-			Value:   tokenStr,
-			Expires: time.Now().Add(fiveMinutes * time.Minute),
-		})
-
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -367,6 +344,47 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Logger.Infoln(userid)
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *MyServer) sendAuthToken(w http.ResponseWriter, r *http.Request) error {
+	jwtProvider := NewJwtProvider(time.Hour, s.secretKey)
+
+	cookie, err := r.Cookie("token")
+
+	if err != nil {
+		s.Logger.Infoln("NO COOKIE")
+
+		tokenStr, err := jwtProvider.GetStr(s.secretKey, s.userIDCounter)
+
+		if err != nil {
+			return fmt.Errorf("CAN'T CREATE JWT TOKEN: [%v]", err)
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:    "token",
+			Value:   tokenStr,
+			Expires: time.Now().Add(fiveMinutes * time.Minute),
+		})
+
+		return nil
+	}
+
+	_, err = jwtProvider.GetUserID(cookie.Value)
+
+	if err != nil {
+		tokenStr, err := jwtProvider.GetStr(s.secretKey, s.userIDCounter)
+
+		if err != nil {
+			return fmt.Errorf("CAN'T CREATE JWT TOKEN: [%v]", err)
+		}
+		http.SetCookie(w, &http.Cookie{
+			Name:    "token",
+			Value:   tokenStr,
+			Expires: time.Now().Add(fiveMinutes * time.Minute),
+		})
+	}
+
+	return nil
 }
 
 func (s *MyServer) actionStart(next http.Handler) http.Handler {
@@ -422,6 +440,14 @@ func (s *MyServer) actionStart(next http.Handler) http.Handler {
 
 			r.Body = gz
 		}
+
+		err := s.sendAuthToken(w, r)
+
+		if err != nil {
+			s.actionError(w, "AUTH NEED BUT CAN'T:"+fmt.Sprintf("%s", err))
+			return
+		}
+
 		next.ServeHTTP(&lw, r)
 
 		duration := time.Since(begTime)
@@ -439,8 +465,9 @@ func (s *MyServer) actionStart(next http.Handler) http.Handler {
 
 func NewServer(log logger.MyLogger, repo repository.StorageService) (*MyServer, error) {
 	return &MyServer{
-		Logger: log,
-		Repo:   repo,
+		Logger:    log,
+		Repo:      repo,
+		secretKey: "KEY_FOR_SECRET",
 	}, nil
 }
 
