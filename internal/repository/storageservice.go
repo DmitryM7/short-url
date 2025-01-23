@@ -37,12 +37,9 @@ func (s *StorageService) сalcShortURL(url string) string {
 	return fmt.Sprintf("%08x", crc32.Checksum([]byte(url), crc32.MakeTable(crc32.IEEE)))
 }
 
-func (s *StorageService) Create(url string) (string, error) {
-	shortURL := s.сalcShortURL(url)
-	lnkRec := LinkRecord{
-		ShortURL: shortURL,
-		URL:      url,
-	}
+func (s *StorageService) Create(lnkRec LinkRecord) (string, error) {
+	shortURL := s.сalcShortURL(lnkRec.URL)
+	lnkRec.ShortURL = shortURL
 	return shortURL, s.storage.Create(lnkRec)
 }
 

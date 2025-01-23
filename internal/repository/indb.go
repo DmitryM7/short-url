@@ -91,7 +91,10 @@ func (l *InDBStorage) GetByURL(url string) (string, error) {
 }
 
 func (l *InDBStorage) Create(lnkRec LinkRecord) error {
-	_, err := l.db.ExecContext(context.Background(), "INSERT INTO repo (shorturl,url) VALUES($1,$2)", lnkRec.ShortURL, lnkRec.URL)
+	_, err := l.db.ExecContext(context.Background(), `INSERT INTO repo (userid,shorturl,url) VALUES($1,$2,$3)`,
+		lnkRec.UserID,
+		lnkRec.ShortURL,
+		lnkRec.URL)
 
 	if err != nil {
 		return err

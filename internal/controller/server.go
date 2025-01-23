@@ -84,7 +84,11 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL, err := s.Repo.Create(url)
+	lnkRec := repository.LinkRecord{
+		URL: url,
+	}
+
+	newURL, err := s.Repo.Create(lnkRec)
 
 	var perr *pgconn.PgError
 
@@ -199,7 +203,11 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL, err := s.Repo.Create(request.URL)
+	lnkRec := repository.LinkRecord{
+		URL: request.URL,
+	}
+
+	newURL, err := s.Repo.Create(lnkRec)
 
 	var perr *pgconn.PgError
 
@@ -306,8 +314,6 @@ func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
-	jwtProvider := NewJwtProvider(time.Hour, s.secretKey)
-
 	cookie, err := r.Cookie("token")
 
 	if err != nil {
@@ -316,7 +322,7 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.Logger.Infoln(cookie.Value)
+	jwtProvider := NewJwtProvider(time.Hour, s.secretKey)
 
 	userid, err := jwtProvider.GetUserID(cookie.Value)
 
@@ -385,6 +391,7 @@ func (s *MyServer) sendAuthToken(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return fmt.Errorf("CAN'T CREATE JWT TOKEN: [%v]", err)
 		}
+
 		http.SetCookie(w, &http.Cookie{
 			Name:    "token",
 			Value:   tokenStr,
@@ -397,7 +404,7 @@ func (s *MyServer) sendAuthToken(w http.ResponseWriter, r *http.Request) error {
 
 func (s *MyServer) actionStart(next http.Handler) http.Handler {
 	f := func(w http.ResponseWriter, r *http.Request) {
-		s.Logger.Debugln(fmt.Sprintf("Req: %s %s\n", r.Host, r.URL.Path))
+		s.Logger.Debugln(fmt.Sprintf("Req: %s %s", r.Host, r.URL.Path))
 
 		begTime := time.Now()
 		uri := r.RequestURI
@@ -427,8 +434,6 @@ func (s *MyServer) actionStart(next http.Handler) http.Handler {
 				}
 			}
 		}
-
-		s.Logger.Debugln(r.Header.Get("Content-Encoding"))
 
 		if r.Header.Get("Content-Encoding") == "gzip" {
 			buf, err := io.ReadAll(r.Body) // handle the error
