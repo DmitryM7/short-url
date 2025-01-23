@@ -136,7 +136,8 @@ func (l *InDBStorage) Ping() bool {
 
 func (l *InDBStorage) Urls(userid int) ([]LinkRecord, error) {
 	res := []LinkRecord{}
-	rows, err := l.db.QueryContext(context.Background(), "SELECT userid,shorturl,url FROM repo WHERE userid=$1", userid)
+	rows, err := l.db.QueryContext(context.Background(), `SELECT userid,shorturl,url FROM repo WHERE userid=$1`,
+		userid)
 
 	if err != nil {
 		if err != sql.ErrNoRows {

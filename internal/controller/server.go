@@ -62,11 +62,15 @@ func (s *MyServer) actionError(w http.ResponseWriter, e string) {
 func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	var answerStatus = http.StatusCreated
 
-	err := s.sendAuthToken(w, r)
+	userid, err := s.getUser(r)
 
 	if err != nil {
-		s.actionError(w, "AUTH NEED BUT CAN'T:"+fmt.Sprintf("%s", err))
-		return
+		err := s.sendAuthToken(w)
+
+		if err != nil {
+			s.actionError(w, "AUTH NEED BUT CAN'T:"+fmt.Sprintf("%s", err))
+			return
+		}
 	}
 
 	body, err := io.ReadAll(r.Body)
@@ -85,7 +89,8 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lnkRec := repository.LinkRecord{
-		URL: url,
+		UserID: userid,
+		URL:    url,
 	}
 
 	newURL, err := s.Repo.Create(lnkRec)
@@ -334,7 +339,7 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Добавляем к короткому адресу указание текущего хоста
-	for k, _ := range lnkRecords {
+	for k := range lnkRecords {
 		lnkRecords[k].ShortURL = conf.RetAdd + "/" + lnkRecords[k].ShortURL
 	}
 
@@ -356,13 +361,7 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *MyServer) sendAuthToken(w http.ResponseWriter, r *http.Request) error {
-	_, err := s.getUser(r)
-
-	if err == nil {
-		return nil
-	}
-
+func (s *MyServer) sendAuthToken(w http.ResponseWriter) error {
 	jwtProvider := NewJwtProvider(time.Hour, s.secretKey)
 
 	tokenStr, err := jwtProvider.GetStr(s.secretKey, s.userIDCounter)
