@@ -62,18 +62,18 @@ func (s *MyServer) actionError(w http.ResponseWriter, e string) {
 
 func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	var answerStatus = http.StatusCreated
+	var userid int
 
 	userid, err := s.getUser(r)
 
 	if err != nil {
-		err := s.sendAuthToken(w)
+		userid, err = s.sendAuthToken(w)
 
 		if err != nil {
 			s.actionError(w, "AUTH NEED BUT CAN'T:"+fmt.Sprintf("%s", err))
 			return
 		}
 
-		userid = s.userIDCounter
 	}
 
 	body, err := io.ReadAll(r.Body)
@@ -367,13 +367,15 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *MyServer) sendAuthToken(w http.ResponseWriter) error {
+func (s *MyServer) sendAuthToken(w http.ResponseWriter) (int, error) {
+
+	userid := s.userIDCounter
 	jwtProvider := NewJwtProvider(time.Hour, s.secretKey)
 
-	tokenStr, err := jwtProvider.GetStr(s.secretKey, s.userIDCounter)
+	tokenStr, err := jwtProvider.GetStr(s.secretKey, userid)
 
 	if err != nil {
-		return fmt.Errorf("CAN'T CREATE JWT TOKEN: [%v]", err)
+		return 0, fmt.Errorf("CAN'T CREATE JWT TOKEN: [%v]", err)
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -384,7 +386,7 @@ func (s *MyServer) sendAuthToken(w http.ResponseWriter) error {
 
 	s.userIDCounter++
 
-	return nil
+	return userid, nil
 }
 
 func (s *MyServer) getUser(r *http.Request) (int, error) {
