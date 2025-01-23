@@ -340,6 +340,8 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.Logger.Infoln("JSON:" + string(answ))
+
 	_, err = w.Write(answ)
 
 	if err != nil {
