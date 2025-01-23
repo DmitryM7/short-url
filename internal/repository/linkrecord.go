@@ -3,6 +3,6 @@ package repository
 type LinkRecord struct {
 	UserID        int    `json:"-"`
 	CorrelationID string `json:"-"`
-	ShortURL      string `json:"short_url"`
-	URL           string `json:"original_url"`
+	ShortURL      string `json:"Short_URL"`
+	URL           string `json:"Original_URL"`
 }
