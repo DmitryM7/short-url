@@ -61,6 +61,8 @@ func (s *MyServer) actionError(w http.ResponseWriter, e string) {
 }
 
 func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
+	s.Logger.Debugln("Start ActionCreateUrl")
+
 	var answerStatus = http.StatusCreated
 	var userid int
 

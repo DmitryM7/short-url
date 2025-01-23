@@ -137,7 +137,7 @@ func (l *InDBStorage) Ping() bool {
 
 func (l *InDBStorage) Urls(userid int) ([]LinkRecord, error) {
 	res := []LinkRecord{}
-	rows, err := l.db.QueryContext(context.Background(), `SELECT userid,shorturl,url FROM repo WHERE userid=$1`,
+	rows, err := l.db.QueryContext(context.Background(), `SELECT id,userid,shorturl,url FROM repo WHERE userid=$1`,
 		userid)
 
 	if err != nil {
@@ -150,7 +150,7 @@ func (l *InDBStorage) Urls(userid int) ([]LinkRecord, error) {
 
 	for rows.Next() {
 		lnkRec := LinkRecord{}
-		err = rows.Scan(&lnkRec.UserID, &lnkRec.ShortURL, &lnkRec.URL)
+		err = rows.Scan(&lnkRec.ID, &lnkRec.UserID, &lnkRec.ShortURL, &lnkRec.URL)
 		if err != nil {
 			return nil, fmt.Errorf("CAN'T SCAN IN Urls: [%v]", err)
 		}
