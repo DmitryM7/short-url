@@ -314,17 +314,7 @@ func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("token")
-
-	if err != nil {
-		s.Logger.Infoln("NO COOKIE")
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-
-	jwtProvider := NewJwtProvider(time.Hour, s.secretKey)
-
-	userid, err := jwtProvider.GetUserID(cookie.Value)
+	userid, err := s.getUser(r)
 
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -356,50 +346,50 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 		s.actionError(w, "CAN'T WRITE ANSWER TO BODY")
 		return
 	}
-	s.Logger.Infoln(userid)
 	w.WriteHeader(http.StatusOK)
 }
 
 func (s *MyServer) sendAuthToken(w http.ResponseWriter, r *http.Request) error {
+	_, err := s.getUser(r)
+
+	if err == nil {
+		return nil
+	}
+
 	jwtProvider := NewJwtProvider(time.Hour, s.secretKey)
 
+	tokenStr, err := jwtProvider.GetStr(s.secretKey, s.userIDCounter)
+
+	if err != nil {
+		return fmt.Errorf("CAN'T CREATE JWT TOKEN: [%v]", err)
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:    "token",
+		Value:   tokenStr,
+		Expires: time.Now().Add(fiveMinutes * time.Minute),
+	})
+
+	return nil
+}
+
+func (s *MyServer) getUser(r *http.Request) (int, error) {
 	cookie, err := r.Cookie("token")
 
 	if err != nil {
 		s.Logger.Infoln("NO COOKIE")
-
-		tokenStr, err := jwtProvider.GetStr(s.secretKey, s.userIDCounter)
-
-		if err != nil {
-			return fmt.Errorf("CAN'T CREATE JWT TOKEN: [%v]", err)
-		}
-
-		http.SetCookie(w, &http.Cookie{
-			Name:    "token",
-			Value:   tokenStr,
-			Expires: time.Now().Add(fiveMinutes * time.Minute),
-		})
-
-		return nil
+		return 0, fmt.Errorf("CAN'T READ COOKIE [%v]", err)
 	}
 
-	_, err = jwtProvider.GetUserID(cookie.Value)
+	jwtProvider := NewJwtProvider(time.Hour, s.secretKey)
+
+	userid, err := jwtProvider.GetUserID(cookie.Value)
 
 	if err != nil {
-		tokenStr, err := jwtProvider.GetStr(s.secretKey, s.userIDCounter)
-
-		if err != nil {
-			return fmt.Errorf("CAN'T CREATE JWT TOKEN: [%v]", err)
-		}
-
-		http.SetCookie(w, &http.Cookie{
-			Name:    "token",
-			Value:   tokenStr,
-			Expires: time.Now().Add(fiveMinutes * time.Minute),
-		})
+		return userid, fmt.Errorf("CAN'T GETUSER ID [%v]", err)
 	}
 
-	return nil
+	return userid, nil
 }
 
 func (s *MyServer) actionStart(next http.Handler) http.Handler {
