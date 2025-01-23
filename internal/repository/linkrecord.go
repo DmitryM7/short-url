@@ -1,7 +1,7 @@
 package repository
 
 type LinkRecord struct {
-	UserID        int    `json:"UserID"`
+	UserID        int    `json:"-"`
 	CorrelationID string `json:"-"`
 	ShortURL      string `json:"ShortURL"`
 	URL           string `json:"OriginalURL"`
