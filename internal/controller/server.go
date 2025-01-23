@@ -61,6 +61,14 @@ func (s *MyServer) actionError(w http.ResponseWriter, e string) {
 
 func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	var answerStatus = http.StatusCreated
+
+	err := s.sendAuthToken(w, r)
+
+	if err != nil {
+		s.actionError(w, "AUTH NEED BUT CAN'T:"+fmt.Sprintf("%s", err))
+		return
+	}
+
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 
@@ -439,13 +447,6 @@ func (s *MyServer) actionStart(next http.Handler) http.Handler {
 			}
 
 			r.Body = gz
-		}
-
-		err := s.sendAuthToken(w, r)
-
-		if err != nil {
-			s.actionError(w, "AUTH NEED BUT CAN'T:"+fmt.Sprintf("%s", err))
-			return
 		}
 
 		next.ServeHTTP(&lw, r)
