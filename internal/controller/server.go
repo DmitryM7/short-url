@@ -456,8 +456,8 @@ func NewRouter(log logger.MyLogger, repo repository.StorageService) *chi.Mux {
 
 	R.Route("/", func(r chi.Router) {
 		r.Route("/api", func(r chi.Router) {
-			r.Get("/shorten", server.actionShorten)
-			r.Get("/shorten/batch", server.actionBatch)
+			r.Post("/shorten", server.actionShorten)
+			r.Post("/shorten/batch", server.actionBatch)
 			r.Get("/urls", server.actionAPIUrls)
 		})
 		r.Post("/", server.actionCreateURL)
