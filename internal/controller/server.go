@@ -222,7 +222,7 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lnkRec := repository.LinkRecord{
-		UserID: userid,
+		UserID: 100,
 		URL:    request.URL,
 	}
 
