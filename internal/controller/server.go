@@ -91,6 +91,8 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.Logger.Debugln(url)
+
 	lnkRec := repository.LinkRecord{
 		UserID: userid,
 		URL:    url,
