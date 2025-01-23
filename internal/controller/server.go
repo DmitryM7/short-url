@@ -3,6 +3,7 @@ package controller
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -75,7 +76,6 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 			s.actionError(w, "AUTH NEED BUT CAN'T:"+fmt.Sprintf("%s", err))
 			return
 		}
-
 	}
 
 	body, err := io.ReadAll(r.Body)
@@ -370,11 +370,9 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 		s.actionError(w, "CAN'T WRITE ANSWER TO BODY")
 		return
 	}
-
 }
 
 func (s *MyServer) sendAuthToken(w http.ResponseWriter) (int, error) {
-
 	userid := s.userIDCounter
 	jwtProvider := NewJwtProvider(time.Hour, s.secretKey)
 
@@ -482,11 +480,18 @@ func (s *MyServer) actionStart(next http.Handler) http.Handler {
 }
 
 func NewServer(log logger.MyLogger, repo repository.StorageService) (*MyServer, error) {
+	b := make([]byte, 2)
+	_, err := rand.Read(b)
+	if err != nil {
+		return &MyServer{}, err
+	}
+
 	return &MyServer{
-		Logger:        log,
-		Repo:          repo,
-		secretKey:     "KEY_FOR_SECRET",
-		userIDCounter: int(time.Now().Unix()),
+		Logger:    log,
+		Repo:      repo,
+		secretKey: "KEY_FOR_SECRET",
+		//userIDCounter: int(time.Now().Unix()),
+		userIDCounter: int(b[0] + b[1]),
 	}, nil
 }
 
