@@ -333,6 +333,11 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Добавляем к короткому адресу указание текущего хоста
+	for k, _ := range lnkRecords {
+		lnkRecords[k].ShortURL = conf.RetAdd + "/" + lnkRecords[k].ShortURL
+	}
+
 	answ, err := json.Marshal(&lnkRecords)
 
 	if err != nil {
