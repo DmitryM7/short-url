@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/DmitryM7/short-url.git/internal/logger"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -23,15 +24,13 @@ func NewInDBStorage(lg logger.MyLogger, dsn string) (*InDBStorage, error) {
 	err := st.connect()
 
 	if err != nil {
-		lg.Infoln("HERE1")
-		return &st, err
+		return &st, fmt.Errorf("CANT CONNECT TO DB [%v]", err)
 	}
 
 	err = st.createSchema()
 
 	if err != nil {
-		lg.Infoln("HERE2")
-		return &st, err
+		return &st, fmt.Errorf("CAN'T CREATE SCHEMA [%v]", err)
 	}
 
 	return &st, err
@@ -41,11 +40,11 @@ func (l *InDBStorage) connect() error {
 	db, err := sql.Open("pgx", l.DatabaseDSN)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("CANT do sql.open: [%v]", err)
 	}
 
 	if err := db.PingContext(context.Background()); err != nil {
-		return err
+		return fmt.Errorf("CANT PING DB: [%v]", err)
 	}
 
 	l.db = db
@@ -63,8 +62,9 @@ func (l *InDBStorage) createSchema() error {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			_, err = l.db.ExecContext(context.Background(), `CREATE TABLE repo ("id" SERIAL PRIMARY KEY,
+																			   "userid" INT,																			
 			                                                                   "shorturl" VARCHAR NOT NULL UNIQUE,
-																			"url" VARCHAR NOT NULL UNIQUE)`)
+																			   "url" VARCHAR NOT NULL UNIQUE)`)
 			if err != nil {
 				return err
 			}
@@ -109,14 +109,14 @@ func (l *InDBStorage) BatchCreate(lnkRecs []LinkRecord) error {
 	stmt, err := tx.PrepareContext(context.Background(), "INSERT INTO repo (shorturl,url) VALUES($1,$2)")
 
 	if err != nil {
-		return err
+		return fmt.Errorf("CAN'T PREPARE CONTEXT IN BATCH: [%v]", err)
 	}
 
 	for _, lnk := range lnkRecs {
 		_, err := stmt.ExecContext(context.Background(), lnk.ShortURL, lnk.URL)
 
 		if err != nil {
-			return err
+			return fmt.Errorf("CAN'T EXEC PREPARED QUERY IN BATCH: [%v]", err)
 		}
 	}
 
@@ -129,4 +129,28 @@ func (l *InDBStorage) Ping() bool {
 	}
 
 	return true
+}
+
+func (l *InDBStorage) Urls(userid int) ([]LinkRecord, error) {
+	res := []LinkRecord{}
+	rows, err := l.db.QueryContext(context.Background(), "SELECT userid,shorturl,url FROM repo WHERE userid=$1", userid)
+
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return nil, fmt.Errorf("CAN'T EXEC QUERY IN URLs [%v]", err)
+		}
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		lnkRec := LinkRecord{}
+		err = rows.Scan(&lnkRec.UserID, &lnkRec.ShortURL, &lnkRec.URL)
+		if err != nil {
+			return nil, fmt.Errorf("CAN'T SCAN IN Urls: [%v]", err)
+		}
+		res = append(res, lnkRec)
+	}
+
+	return res, nil
 }

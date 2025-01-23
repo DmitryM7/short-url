@@ -57,3 +57,7 @@ func (s *StorageService) GetByURL(url string) (string, error) {
 func (s *StorageService) Ping() bool {
 	return s.storage.Ping()
 }
+
+func (s *StorageService) Urls(userid int) ([]LinkRecord, error) {
+	return s.storage.Urls(userid)
+}

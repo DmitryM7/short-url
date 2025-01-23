@@ -45,6 +45,8 @@ type (
 	}
 )
 
+const fiveMinutes = 5
+
 func (s *MyServer) actionError(w http.ResponseWriter, e string) {
 	s.Logger.Infoln(e)
 	w.WriteHeader(http.StatusBadRequest)
@@ -293,6 +295,80 @@ func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
+	newUserid := 1
+
+	secretKey := "KEY_FOR_SECRET"
+
+	jwtProvider := NewJwtProvider(time.Hour, secretKey)
+
+	tokenStr, err := jwtProvider.GetStr(secretKey, newUserid)
+
+	if err != nil {
+		s.Logger.Errorln("CAN'T CREATE JWT STRING")
+		s.actionError(w, "CAN'T CREATE JWT STRING")
+		return
+	}
+
+	cookie, err := r.Cookie("token")
+
+	if err != nil {
+		s.Logger.Infoln("NO COOKIE")
+
+		http.SetCookie(w, &http.Cookie{
+			Name:    "token",
+			Value:   tokenStr,
+			Expires: time.Now().Add(fiveMinutes * time.Minute),
+		})
+
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	s.Logger.Infoln(cookie.Value)
+
+	userid, err := jwtProvider.GetUserID(cookie.Value)
+
+	if err != nil {
+		http.SetCookie(w, &http.Cookie{
+			Name:    "token",
+			Value:   tokenStr,
+			Expires: time.Now().Add(fiveMinutes * time.Minute),
+		})
+
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	lnkRecords, err := s.Repo.Urls(userid)
+
+	if err != nil {
+		s.actionError(w, "CAN'T GET URLS")
+		return
+	}
+
+	if len(lnkRecords) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	answ, err := json.Marshal(&lnkRecords)
+
+	if err != nil {
+		s.actionError(w, "CAN'T MARSHAL ANSWER")
+		return
+	}
+
+	_, err = w.Write(answ)
+
+	if err != nil {
+		s.actionError(w, "CAN'T WRITE ANSWER TO BODY")
+		return
+	}
+	s.Logger.Infoln(userid)
+	w.WriteHeader(http.StatusOK)
+}
+
 func (s *MyServer) actionStart(next http.Handler) http.Handler {
 	f := func(w http.ResponseWriter, r *http.Request) {
 		s.Logger.Debugln(fmt.Sprintf("Req: %s %s\n", r.Host, r.URL.Path))
@@ -379,9 +455,12 @@ func NewRouter(log logger.MyLogger, repo repository.StorageService) *chi.Mux {
 	R.Use(server.actionStart)
 
 	R.Route("/", func(r chi.Router) {
+		r.Route("/api", func(r chi.Router) {
+			r.Get("/shorten", server.actionShorten)
+			r.Get("/shorten/batch", server.actionBatch)
+			r.Get("/urls", server.actionAPIUrls)
+		})
 		r.Post("/", server.actionCreateURL)
-		r.Post("/api/shorten", server.actionShorten)
-		r.Post("/api/shorten/batch", server.actionBatch)
 		r.Get("/{id}", server.actionRedirect)
 		r.Get("/ping", server.actionPing)
 		r.Get("/tst", server.actionTest)

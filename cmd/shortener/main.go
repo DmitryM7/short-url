@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -34,7 +33,7 @@ func main() {
 	repo, err := repository.NewStorageService(repoConf)
 
 	if err != nil {
-		lg.Fatalln("CANT INIT REPO" + fmt.Sprintf("%#v", err))
+		lg.Fatalln(err)
 	}
 
 	r := controller.NewRouter(lg, repo)

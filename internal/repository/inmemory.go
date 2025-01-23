@@ -61,3 +61,17 @@ func (r *InMemoryStorage) GetByURL(url string) (string, error) {
 func (r *InMemoryStorage) Ping() bool {
 	return true
 }
+
+func (r *InMemoryStorage) Urls(userid int) ([]LinkRecord, error) {
+	res := []LinkRecord{}
+
+	for k, v := range r.Repo {
+		lnkRec := LinkRecord{
+			ShortURL: k,
+			URL:      v,
+		}
+		res = append(res, lnkRec)
+	}
+
+	return res, nil
+}
