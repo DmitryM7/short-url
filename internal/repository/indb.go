@@ -152,5 +152,9 @@ func (l *InDBStorage) Urls(userid int) ([]LinkRecord, error) {
 		res = append(res, lnkRec)
 	}
 
+	if err = rows.Err(); err != nil {
+		return res, fmt.Errorf("ROW ERROR IN Urls: [%v]", err)
+	}
+
 	return res, nil
 }
