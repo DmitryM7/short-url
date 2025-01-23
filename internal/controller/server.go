@@ -72,6 +72,8 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 			s.actionError(w, "AUTH NEED BUT CAN'T:"+fmt.Sprintf("%s", err))
 			return
 		}
+
+		userid = s.userIDCounter
 	}
 
 	body, err := io.ReadAll(r.Body)
