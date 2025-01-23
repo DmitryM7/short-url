@@ -317,8 +317,9 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 	userid, err := s.getUser(r)
 
 	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
+		//w.WriteHeader(http.StatusUnauthorized)
+		//return
+		userid = 0
 	}
 
 	lnkRecords, err := s.Repo.Urls(userid)
