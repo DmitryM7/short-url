@@ -112,6 +112,7 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		answerStatus = http.StatusConflict
 	}
 
+	s.Logger.Infoln("CURR USER IS = " + string(userid))
 	w.Header().Set("Content-type", "text/plain")
 	w.WriteHeader(answerStatus)
 	_, errWrite := w.Write([]byte(conf.RetAdd + "/" + newURL))
@@ -326,6 +327,7 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.Logger.Infoln("CURR USER IS = " + string(userid))
 	lnkRecords, err := s.Repo.Urls(userid)
 
 	if err != nil {

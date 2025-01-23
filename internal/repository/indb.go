@@ -73,12 +73,6 @@ func (l *InDBStorage) createSchema() error {
 		return err
 	}
 
-	_, err = l.db.ExecContext(context.Background(), `TRUNCATE TABLE repo`)
-
-	if err != nil {
-		return fmt.Errorf("CAN'T TRUNCATE TABLE repo [%v]", err)
-	}
-
 	return nil
 }
 
