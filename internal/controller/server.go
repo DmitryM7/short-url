@@ -377,6 +377,8 @@ func (s *MyServer) sendAuthToken(w http.ResponseWriter, r *http.Request) error {
 		Expires: time.Now().Add(fiveMinutes * time.Minute),
 	})
 
+	s.userIDCounter++
+
 	return nil
 }
 
