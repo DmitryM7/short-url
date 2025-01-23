@@ -187,17 +187,6 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 	var answerStatus = http.StatusCreated
 	s.Logger.Debugln("Start Shorten")
 
-	userid, err := s.getUser(r)
-
-	if err != nil {
-		err := s.sendAuthToken(w)
-
-		if err != nil {
-			s.actionError(w, "AUTH NEED BUT CAN'T:"+fmt.Sprintf("%s", err))
-			return
-		}
-	}
-
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 
