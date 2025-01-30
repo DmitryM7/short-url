@@ -173,7 +173,6 @@ func (l *InDBStorage) Urls(userid int) ([]LinkRecord, error) {
 }
 
 func (l *InDBStorage) BatchDel(userid int, urls []string) error {
-
 	tx, err := l.db.Begin()
 	if err != nil {
 		return err
@@ -188,7 +187,7 @@ func (l *InDBStorage) BatchDel(userid int, urls []string) error {
 	doneCh := make(chan struct{})
 	defer close(doneCh)
 
-	inputCh := l.generatorUrlsDel(doneCh, urls)
+	inputCh := l.generatorUrlsDel(urls)
 
 	l.Logger.Infoln(userid)
 
@@ -199,7 +198,7 @@ func (l *InDBStorage) BatchDel(userid int, urls []string) error {
 	return tx.Commit()
 }
 
-func (l *InDBStorage) generatorUrlsDel(doneCh chan struct{}, input []string) chan string {
+func (l *InDBStorage) generatorUrlsDel(input []string) chan string {
 	inputCh := make(chan string)
 
 	go func() {
@@ -208,9 +207,7 @@ func (l *InDBStorage) generatorUrlsDel(doneCh chan struct{}, input []string) cha
 		for _, url := range input {
 			inputCh <- url
 		}
-
 	}()
-
 	return inputCh
 }
 
@@ -260,7 +257,6 @@ func (l *InDBStorage) fanIn(doneCh chan struct{}, resultChs ...chan bool) chan b
 		wg.Add(1)
 
 		go func() {
-
 			defer wg.Done()
 
 			// получаем данные из канала

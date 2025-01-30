@@ -146,11 +146,9 @@ func (s *MyServer) actionRedirect(w http.ResponseWriter, r *http.Request) {
 	newURL, err := s.Repo.Get(id)
 
 	if err != nil {
-
 		if errors.Is(err, repository.ErrRecWasDelete) {
 			w.WriteHeader(http.StatusGone)
 			return
-
 		}
 		s.actionError(w, "CAN'T GET SHORT LINK FROM REPO")
 		return
@@ -379,12 +377,11 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
-
 	userid, err := s.getUser(r)
 
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
-		//return
+		return
 	}
 
 	s.Logger.Infoln("CURR USER IS = " + strconv.Itoa(userid))
@@ -417,7 +414,6 @@ func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	w.WriteHeader(http.StatusAccepted)
-
 }
 
 func (s *MyServer) sendAuthToken(w http.ResponseWriter) (int, error) {
