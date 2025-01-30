@@ -93,8 +93,6 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.Logger.Debugln(url)
-
 	lnkRec := repository.LinkRecord{
 		UserID: userid,
 		URL:    url,
@@ -414,13 +412,13 @@ func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.actionError(w, "CAN'T LOAD BODY TO SLICE.")
 	}
-
-	go func() {
-		err = s.Repo.BatchDel(userid, idsToDel)
-		if err != nil {
-			s.Logger.Errorln(err)
-		}
-	}()
+	/*
+		go func() {
+			err = s.Repo.BatchDel(userid, idsToDel)
+			if err != nil {
+				s.Logger.Errorln(err)
+			}
+		}()*/
 
 	w.WriteHeader(http.StatusAccepted)
 }
