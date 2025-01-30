@@ -33,16 +33,17 @@ func (s *StorageService) BatchCreate(lnkRecs []LinkRecord) ([]LinkRecord, error)
 	return lnkRecs, nil
 }
 
+func (s *StorageService) BatchDel(userid int, urls []string) error {
+	return s.storage.BatchDel(userid, urls)
+}
+
 func (s *StorageService) сalcShortURL(url string) string {
 	return fmt.Sprintf("%08x", crc32.Checksum([]byte(url), crc32.MakeTable(crc32.IEEE)))
 }
 
-func (s *StorageService) Create(url string) (string, error) {
-	shortURL := s.сalcShortURL(url)
-	lnkRec := LinkRecord{
-		ShortURL: shortURL,
-		URL:      url,
-	}
+func (s *StorageService) Create(lnkRec LinkRecord) (string, error) {
+	shortURL := s.сalcShortURL(lnkRec.URL)
+	lnkRec.ShortURL = shortURL
 	return shortURL, s.storage.Create(lnkRec)
 }
 
@@ -56,4 +57,8 @@ func (s *StorageService) GetByURL(url string) (string, error) {
 
 func (s *StorageService) Ping() bool {
 	return s.storage.Ping()
+}
+
+func (s *StorageService) Urls(userid int) ([]LinkRecord, error) {
+	return s.storage.Urls(userid)
 }

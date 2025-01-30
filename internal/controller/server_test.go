@@ -134,7 +134,10 @@ func TestActionCreateURL(t *testing.T) {
 }
 
 func TestActionRedirect(t *testing.T) {
-	_, err := Repo.Create("www.ya.ru")
+	lnkRec := repository.LinkRecord{
+		URL: "www.ya.ru",
+	}
+	_, err := Repo.Create(lnkRec)
 
 	if err != nil {
 		Logger.Fatalln("CAN'T CREATE RECORD")

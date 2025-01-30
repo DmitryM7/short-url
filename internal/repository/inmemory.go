@@ -16,6 +16,8 @@ type InMemoryStorage struct {
 }
 
 func NewInMemoryStorage(lg logger.MyLogger) (*InMemoryStorage, error) {
+	lg.Infoln("CREATE NEW IN MEMORE STORAGE")
+
 	return &InMemoryStorage{
 		Logger: lg,
 		Repo:   make(map[string]string, rLength),
@@ -60,4 +62,22 @@ func (r *InMemoryStorage) GetByURL(url string) (string, error) {
 
 func (r *InMemoryStorage) Ping() bool {
 	return true
+}
+
+func (r *InMemoryStorage) Urls(userid int) ([]LinkRecord, error) {
+	res := []LinkRecord{}
+
+	for k, v := range r.Repo {
+		lnkRec := LinkRecord{
+			ShortURL: k,
+			URL:      v,
+		}
+		res = append(res, lnkRec)
+	}
+
+	return res, nil
+}
+
+func (r *InMemoryStorage) BatchDel(userid int, ursl []string) error {
+	return nil
 }
