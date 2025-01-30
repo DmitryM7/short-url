@@ -378,7 +378,12 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
+
+	s.Logger.Infoln("URLS DELETE START")
+
 	userid, err := s.getUser(r)
+
+	s.Logger.Infoln("URLS DELETE USER IS CHECKED")
 
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -393,6 +398,7 @@ func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
 		s.actionError(w, "CAN'T READ BODY")
 		return
 	}
+	defer r.Body.Close()
 
 	if string(body) == "" {
 		s.actionError(w, "BODY IS EMPTY")
