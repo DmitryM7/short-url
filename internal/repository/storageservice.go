@@ -33,6 +33,10 @@ func (s *StorageService) BatchCreate(lnkRecs []LinkRecord) ([]LinkRecord, error)
 	return lnkRecs, nil
 }
 
+func (s *StorageService) BatchDel(userid int, urls []string) error {
+	return s.storage.BatchDel(userid, urls)
+}
+
 func (s *StorageService) сalcShortURL(url string) string {
 	return fmt.Sprintf("%08x", crc32.Checksum([]byte(url), crc32.MakeTable(crc32.IEEE)))
 }

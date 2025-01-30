@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
 
 	"github.com/DmitryM7/short-url.git/internal/logger"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -65,7 +66,9 @@ func (l *InDBStorage) createSchema() error {
 			_, err = l.db.ExecContext(context.Background(), `CREATE TABLE repo ("id" SERIAL PRIMARY KEY,
 																			   "userid" INT,																			
 			                                                                   "shorturl" VARCHAR NOT NULL UNIQUE,
-																			   "url" VARCHAR NOT NULL UNIQUE)`)
+																			   "url" VARCHAR NOT NULL UNIQUE,
+																			   "is_deleted" BOOLEAN
+																			 )`)
 			if err != nil {
 				return fmt.Errorf("CAN'T CREATE NEW TABLE repo [%v]", err)
 			}
@@ -79,8 +82,12 @@ func (l *InDBStorage) createSchema() error {
 
 func (l *InDBStorage) Get(url string) (string, error) {
 	var shorturl string
-	row := l.db.QueryRowContext(context.Background(), "SELECT url FROM repo WHERE shorturl=$1", url)
-	err := row.Scan(&shorturl)
+	var isDeleted bool
+	row := l.db.QueryRowContext(context.Background(), "SELECT url,is_deleted FROM repo WHERE shorturl=$1", url)
+	err := row.Scan(&shorturl, &isDeleted)
+	if isDeleted {
+		return shorturl, fmt.Errorf("LINK WAS FOUND, BUT DELETED")
+	}
 	return shorturl, err
 }
 
@@ -162,4 +169,118 @@ func (l *InDBStorage) Urls(userid int) ([]LinkRecord, error) {
 	}
 
 	return res, nil
+}
+
+func (l *InDBStorage) BatchDel(userid int, urls []string) error {
+
+	tx, err := l.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := tx.PrepareContext(context.Background(), "UPDATE repo SET is_deleted=true WHERE userid=$1 AND shorturl=$2")
+
+	if err != nil {
+		return fmt.Errorf("CAN'T PREPARE SQL IN BATCH DELETE: [%v]", err)
+	}
+
+	doneCh := make(chan struct{})
+	defer close(doneCh)
+
+	inputCh := l.generatorUrlsDel(doneCh, urls)
+
+	l.Logger.Infoln(userid)
+
+	channels := l.fanOut(doneCh, inputCh, userid, stmt)
+
+	l.fanIn(doneCh, channels...)
+
+	return tx.Commit()
+}
+
+func (l *InDBStorage) generatorUrlsDel(doneCh chan struct{}, input []string) chan string {
+	inputCh := make(chan string)
+
+	go func() {
+		defer close(inputCh)
+
+		for _, url := range input {
+			inputCh <- url
+		}
+
+	}()
+
+	return inputCh
+}
+
+func (l *InDBStorage) fanOut(doneCh chan struct{}, inputCh chan string, userid int, stmt *sql.Stmt) []chan bool {
+	numWorkers := 10
+	// каналы, в которые отправляются результаты
+	channels := make([]chan bool, numWorkers)
+
+	for i := 0; i < numWorkers; i++ {
+		channels[i] = l.urlsDel(doneCh, inputCh, userid, stmt)
+	}
+
+	// возвращаем слайс каналов
+	return channels
+}
+
+func (l *InDBStorage) urlsDel(doneCh chan struct{}, inputCh chan string, userid int, stmt *sql.Stmt) chan bool {
+	res := make(chan bool)
+
+	go func() {
+		defer close(res)
+
+		for url := range inputCh {
+			_, err := stmt.ExecContext(context.Background(), userid, url)
+
+			if err != nil {
+				l.Logger.Infoln(err)
+			}
+			select {
+			case <-doneCh:
+				return
+			case res <- err != nil:
+			}
+		}
+	}()
+
+	return res
+}
+
+func (l *InDBStorage) fanIn(doneCh chan struct{}, resultChs ...chan bool) chan bool {
+	finalCh := make(chan bool)
+
+	var wg sync.WaitGroup
+
+	for _, ch := range resultChs {
+		chClosure := ch
+		wg.Add(1)
+
+		go func() {
+
+			defer wg.Done()
+
+			// получаем данные из канала
+			for data := range chClosure {
+				select {
+				// выходим из горутины, если канал закрылся
+				case <-doneCh:
+					return
+				case <-chClosure:
+					return
+				// если не закрылся, отправляем данные в конечный выходной канал
+				case finalCh <- data:
+				}
+			}
+		}()
+	}
+
+	// ждём завершения всех горутин
+	wg.Wait()
+	// когда все горутины завершились, закрываем результирующий канал
+	close(finalCh)
+
+	return finalCh
 }

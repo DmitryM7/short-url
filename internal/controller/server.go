@@ -49,7 +49,7 @@ type (
 	}
 )
 
-const fiveMinutes = 5
+const CookieLiveMinutes = 25
 
 func (s *MyServer) actionError(w http.ResponseWriter, e string) {
 	s.Logger.Infoln(e)
@@ -372,6 +372,48 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
+
+	userid, err := s.getUser(r)
+
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		//return
+	}
+
+	s.Logger.Infoln("CURR USER IS = " + strconv.Itoa(userid))
+
+	body, err := io.ReadAll(r.Body)
+
+	if err != nil {
+		s.actionError(w, "CAN'T READ BODY")
+		return
+	}
+
+	if string(body) == "" {
+		s.actionError(w, "BODY IS EMPTY")
+		return
+	}
+
+	idsToDel := []string{}
+
+	err = json.Unmarshal(body, &idsToDel)
+
+	if err != nil {
+		s.actionError(w, "CAN'T LOAD BODY TO SLICE.")
+	}
+
+	go func() {
+		err = s.Repo.BatchDel(userid, idsToDel)
+		if err != nil {
+			s.Logger.Errorln(err)
+		}
+	}()
+
+	w.WriteHeader(http.StatusAccepted)
+
+}
+
 func (s *MyServer) sendAuthToken(w http.ResponseWriter) (int, error) {
 	userid := s.userIDCounter
 	jwtProvider := NewJwtProvider(time.Hour, s.secretKey)
@@ -385,7 +427,7 @@ func (s *MyServer) sendAuthToken(w http.ResponseWriter) (int, error) {
 	http.SetCookie(w, &http.Cookie{
 		Name:    "token",
 		Value:   tokenStr,
-		Expires: time.Now().Add(fiveMinutes * time.Minute),
+		Expires: time.Now().Add(CookieLiveMinutes * time.Minute),
 	})
 
 	s.userIDCounter++
@@ -510,6 +552,7 @@ func NewRouter(log logger.MyLogger, repo repository.StorageService) *chi.Mux {
 			r.Post("/shorten", server.actionShorten)
 			r.Post("/shorten/batch", server.actionBatch)
 			r.Get("/user/urls", server.actionAPIUrls)
+			r.Delete("/users/urls", server.actionAPIUrlsDelete)
 		})
 		r.Post("/", server.actionCreateURL)
 		r.Get("/{id}", server.actionRedirect)

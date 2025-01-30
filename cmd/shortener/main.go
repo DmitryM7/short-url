@@ -12,6 +12,7 @@ import (
 )
 
 func main() {
+
 	lg := logger.NewLogger()
 
 	lg.Infoln("RUN...")

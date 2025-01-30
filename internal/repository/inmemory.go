@@ -77,3 +77,7 @@ func (r *InMemoryStorage) Urls(userid int) ([]LinkRecord, error) {
 
 	return res, nil
 }
+
+func (r *InMemoryStorage) BatchDel(userid int, ursl []string) error {
+	return nil
+}

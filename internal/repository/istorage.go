@@ -6,5 +6,6 @@ type IStorage interface {
 	GetByURL(url string) (string, error)
 	BatchCreate(lnkRecs []LinkRecord) error
 	Urls(userid int) ([]LinkRecord, error)
+	BatchDel(userid int, urls []string) error
 	Ping() bool
 }
