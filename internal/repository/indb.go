@@ -83,12 +83,18 @@ func (l *InDBStorage) createSchema() error {
 func (l *InDBStorage) Get(url string) (string, error) {
 	var id int
 	var shorturl string
-	var isDeleted bool
+	var isDeleted *bool
 	row := l.db.QueryRowContext(context.Background(), "SELECT id,url,is_deleted FROM repo WHERE shorturl=$1", url)
 	err := row.Scan(&id, &shorturl, &isDeleted)
-	if isDeleted {
+
+	if err != nil {
+		return "", fmt.Errorf("CAN'T GET RECORD: [%v]", err)
+	}
+
+	if isDeleted != nil && *isDeleted {
 		return shorturl, ErrRecWasDelete
 	}
+
 	return shorturl, err
 }
 

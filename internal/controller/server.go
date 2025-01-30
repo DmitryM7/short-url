@@ -150,7 +150,8 @@ func (s *MyServer) actionRedirect(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusGone)
 			return
 		}
-		s.actionError(w, "CAN'T GET SHORT LINK FROM REPO")
+
+		s.actionError(w, fmt.Sprintf("CAN'T GET SHORT LINK FROM REPO: [%v]", err))
 		return
 	}
 
