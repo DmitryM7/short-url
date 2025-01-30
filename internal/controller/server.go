@@ -412,13 +412,13 @@ func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.actionError(w, "CAN'T LOAD BODY TO SLICE.")
 	}
-	/*
-		go func() {
-			err = s.Repo.BatchDel(userid, idsToDel)
-			if err != nil {
-				s.Logger.Errorln(err)
-			}
-		}()*/
+
+	go func() {
+		err = s.Repo.BatchDel(userid, idsToDel)
+		if err != nil {
+			s.Logger.Errorln(err)
+		}
+	}()
 
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -519,7 +519,7 @@ func (s *MyServer) actionStart(next http.Handler) http.Handler {
 
 		duration := time.Since(begTime)
 
-		s.Logger.Infoln(
+		s.Logger.Debugln(
 			"uri", uri,
 			"method", method,
 			"duration", duration,
@@ -561,7 +561,7 @@ func NewRouter(log logger.MyLogger, repo repository.StorageService) *chi.Mux {
 			r.Post("/shorten", server.actionShorten)
 			r.Post("/shorten/batch", server.actionBatch)
 			r.Get("/user/urls", server.actionAPIUrls)
-			r.Delete("/users/urls", server.actionAPIUrlsDelete)
+			r.Delete("/user/urls", server.actionAPIUrlsDelete)
 		})
 		r.Post("/", server.actionCreateURL)
 		r.Get("/{id}", server.actionRedirect)
