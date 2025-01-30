@@ -146,6 +146,12 @@ func (s *MyServer) actionRedirect(w http.ResponseWriter, r *http.Request) {
 	newURL, err := s.Repo.Get(id)
 
 	if err != nil {
+
+		if errors.Is(err, repository.ErrRecWasDelete) {
+			w.WriteHeader(http.StatusGone)
+			return
+
+		}
 		s.actionError(w, "CAN'T GET SHORT LINK FROM REPO")
 		return
 	}
