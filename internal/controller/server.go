@@ -399,6 +399,8 @@ func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.Logger.Infoln("URLS DELETE:" + string(body))
+
 	idsToDel := []string{}
 
 	err = json.Unmarshal(body, &idsToDel)
