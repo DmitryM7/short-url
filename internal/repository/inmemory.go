@@ -15,7 +15,7 @@ const (
 type InMemoryStorage struct {
 	Repo   map[string]string
 	Logger logger.MyLogger
-	m      sync.RWMutex
+	m      *sync.RWMutex
 }
 
 func NewInMemoryStorage(lg logger.MyLogger) (*InMemoryStorage, error) {
@@ -24,6 +24,7 @@ func NewInMemoryStorage(lg logger.MyLogger) (*InMemoryStorage, error) {
 	return &InMemoryStorage{
 		Logger: lg,
 		Repo:   make(map[string]string, rLength),
+		m:      &sync.RWMutex{},
 	}, nil
 }
 
