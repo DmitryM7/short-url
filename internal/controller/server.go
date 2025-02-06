@@ -3,6 +3,7 @@ package controller
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -21,6 +22,8 @@ import (
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 )
+
+const maxDBExecuteTime = 30
 
 type (
 	Request struct {
@@ -67,6 +70,10 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	var answerStatus = http.StatusCreated
 	var userid int
 
+	ctx, cancel := context.WithTimeout(context.Background(), maxDBExecuteTime)
+
+	defer cancel()
+
 	userid, err := s.getUser(r)
 
 	if err != nil {
@@ -98,7 +105,7 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		URL:    url,
 	}
 
-	newURL, err := s.Repo.Create(lnkRec)
+	newURL, err := s.Repo.Create(ctx, lnkRec)
 
 	var perr *pgconn.PgError
 
@@ -109,7 +116,7 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		 * но чтобы выполнить букву задания                                    *
 		 * делаем повторное получение shorturl из БД.                          *
 		 ***********************************************************************/
-		newURL, err = s.Repo.GetByURL(url)
+		newURL, err = s.Repo.GetByURL(ctx, url)
 		if err != nil {
 			s.actionError(w, "CAN'T RECEIVE SHORTURL FROM DB")
 			return
@@ -134,6 +141,10 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 func (s *MyServer) actionRedirect(w http.ResponseWriter, r *http.Request) {
 	s.Logger.Debugln("Start Redirect")
 
+	ctx, cancel := context.WithTimeout(r.Context(), maxDBExecuteTime)
+
+	defer cancel()
+
 	id := strings.TrimPrefix(r.URL.Path, "/")
 
 	if id == "" {
@@ -141,7 +152,7 @@ func (s *MyServer) actionRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL, err := s.Repo.Get(id)
+	newURL, err := s.Repo.Get(ctx, id)
 
 	if err != nil {
 		if errors.Is(err, repository.ErrRecWasDelete) {
@@ -196,6 +207,10 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 	var answerStatus = http.StatusCreated
 	s.Logger.Debugln("Start Shorten")
 
+	ctx, cancel := context.WithTimeout(r.Context(), maxDBExecuteTime)
+
+	defer cancel()
+
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 
@@ -224,7 +239,7 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 		URL:    request.URL,
 	}
 
-	newURL, err := s.Repo.Create(lnkRec)
+	newURL, err := s.Repo.Create(ctx, lnkRec)
 
 	var perr *pgconn.PgError
 
@@ -235,7 +250,7 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 		 * но чтобы выполнить букву задания                                    *
 		 * делаем повторное получение shorturl из БД.                          *
 		 ***********************************************************************/
-		newURL, err = s.Repo.GetByURL(request.URL)
+		newURL, err = s.Repo.GetByURL(ctx, request.URL)
 		if err != nil {
 			s.actionError(w, "CAN'T RECEIVE SHORTURL FROM DB")
 			return
@@ -270,6 +285,10 @@ func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 	s.Logger.Debugln("Start Batch")
 	body, err := io.ReadAll(r.Body)
 
+	ctx, cancel := context.WithTimeout(r.Context(), maxDBExecuteTime)
+
+	defer cancel()
+
 	if err != nil {
 		s.actionError(w, "CAN'T READ BODY FROM REQUEST")
 		return
@@ -300,7 +319,7 @@ func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 		lnkRecs = append(lnkRecs, repository.LinkRecord{URL: v.OriginalURL, CorrelationID: v.CorrelationID})
 	}
 
-	lnkResRecs, err := s.Repo.BatchCreate(lnkRecs)
+	lnkResRecs, err := s.Repo.BatchCreate(ctx, lnkRecs)
 
 	if err != nil {
 		s.actionError(w, "CANT SAVE DATA IN REPO")
@@ -332,6 +351,10 @@ func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), maxDBExecuteTime)
+
+	defer cancel()
+
 	userid, err := s.getUser(r)
 
 	if err != nil {
@@ -340,7 +363,7 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.Logger.Infoln("CURR USER IS = " + strconv.Itoa(userid))
-	lnkRecords, err := s.Repo.Urls(userid)
+	lnkRecords, err := s.Repo.Urls(ctx, userid)
 
 	if err != nil {
 		s.actionError(w, "CAN'T GET URLS")
@@ -376,8 +399,11 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
-
 	s.Logger.Infoln("URLS DELETE START")
+
+	ctx, cancel := context.WithTimeout(r.Context(), maxDBExecuteTime)
+
+	defer cancel()
 
 	userid, err := s.getUser(r)
 
@@ -414,7 +440,7 @@ func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func() {
-		err = s.Repo.BatchDel(userid, idsToDel)
+		err = s.Repo.BatchDel(ctx, userid, idsToDel)
 		if err != nil {
 			s.Logger.Errorln(err)
 		}

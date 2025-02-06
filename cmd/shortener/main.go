@@ -33,7 +33,16 @@ func main() {
 	repo, err := repository.NewStorageService(repoConf)
 
 	if err != nil {
-		lg.Fatalln(err)
+		if repoConf.StorageType == repository.FileType {
+			repoConf.StorageType = repository.MemType
+			repo, err = repository.NewStorageService(repoConf)
+
+			if err != nil {
+				lg.Fatalln(err)
+			}
+		} else {
+			lg.Fatalln(err)
+		}
 	}
 
 	r := controller.NewRouter(lg, repo)

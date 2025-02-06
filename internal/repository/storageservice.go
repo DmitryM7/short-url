@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"hash/crc32"
 )
@@ -19,12 +20,12 @@ func NewStorageService(cfg StorageConfig) (StorageService, error) {
 	return StorageService{storage: repo}, nil
 }
 
-func (s *StorageService) BatchCreate(lnkRecs []LinkRecord) ([]LinkRecord, error) {
+func (s *StorageService) BatchCreate(ctx context.Context, lnkRecs []LinkRecord) ([]LinkRecord, error) {
 	for k, v := range lnkRecs {
 		lnkRecs[k].ShortURL = s.сalcShortURL(v.URL)
 	}
 
-	err := s.storage.BatchCreate(lnkRecs)
+	err := s.storage.BatchCreate(ctx, lnkRecs)
 
 	if err != nil {
 		return lnkRecs, err
@@ -33,32 +34,32 @@ func (s *StorageService) BatchCreate(lnkRecs []LinkRecord) ([]LinkRecord, error)
 	return lnkRecs, nil
 }
 
-func (s *StorageService) BatchDel(userid int, urls []string) error {
-	return s.storage.BatchDel(userid, urls)
+func (s *StorageService) BatchDel(ctx context.Context, userid int, urls []string) error {
+	return s.storage.BatchDel(ctx, userid, urls)
 }
 
 func (s *StorageService) сalcShortURL(url string) string {
 	return fmt.Sprintf("%08x", crc32.Checksum([]byte(url), crc32.MakeTable(crc32.IEEE)))
 }
 
-func (s *StorageService) Create(lnkRec LinkRecord) (string, error) {
+func (s *StorageService) Create(ctx context.Context, lnkRec LinkRecord) (string, error) {
 	shortURL := s.сalcShortURL(lnkRec.URL)
 	lnkRec.ShortURL = shortURL
-	return shortURL, s.storage.Create(lnkRec)
+	return shortURL, s.storage.Create(ctx, lnkRec)
 }
 
-func (s *StorageService) Get(shorturl string) (string, error) {
-	return s.storage.Get(shorturl)
+func (s *StorageService) Get(ctx context.Context, shorturl string) (string, error) {
+	return s.storage.Get(ctx, shorturl)
 }
 
-func (s *StorageService) GetByURL(url string) (string, error) {
-	return s.storage.GetByURL(url)
+func (s *StorageService) GetByURL(ctx context.Context, url string) (string, error) {
+	return s.storage.GetByURL(ctx, url)
 }
 
 func (s *StorageService) Ping() bool {
 	return s.storage.Ping()
 }
 
-func (s *StorageService) Urls(userid int) ([]LinkRecord, error) {
-	return s.storage.Urls(userid)
+func (s *StorageService) Urls(ctx context.Context, userid int) ([]LinkRecord, error) {
+	return s.storage.Urls(ctx, userid)
 }

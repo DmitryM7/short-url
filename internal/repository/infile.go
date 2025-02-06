@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -27,8 +28,8 @@ func NewInFileStorage(lg logger.MyLogger, exportFile string) (*InFileStorage, er
 	}, nil
 }
 
-func (r *InFileStorage) Create(lnkRec LinkRecord) error {
-	err := r.InMemoryStorage.Create(lnkRec)
+func (r *InFileStorage) Create(ctx context.Context, lnkRec LinkRecord) error {
+	err := r.InMemoryStorage.Create(ctx, lnkRec)
 
 	if err != nil {
 		return err

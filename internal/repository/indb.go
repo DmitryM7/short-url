@@ -80,11 +80,11 @@ func (l *InDBStorage) createSchema() error {
 	return nil
 }
 
-func (l *InDBStorage) Get(url string) (string, error) {
+func (l *InDBStorage) Get(ctx context.Context, url string) (string, error) {
 	var id int
 	var shorturl string
 	var isDeleted *bool
-	row := l.db.QueryRowContext(context.Background(), "SELECT id,url,is_deleted FROM repo WHERE shorturl=$1", url)
+	row := l.db.QueryRowContext(ctx, "SELECT id,url,is_deleted FROM repo WHERE shorturl=$1", url)
 	err := row.Scan(&id, &shorturl, &isDeleted)
 
 	if err != nil {
@@ -98,15 +98,15 @@ func (l *InDBStorage) Get(url string) (string, error) {
 	return shorturl, err
 }
 
-func (l *InDBStorage) GetByURL(url string) (string, error) {
+func (l *InDBStorage) GetByURL(ctx context.Context, url string) (string, error) {
 	var shorturl string
-	row := l.db.QueryRowContext(context.Background(), "SELECT shorturl FROM repo WHERE url=$1", url)
+	row := l.db.QueryRowContext(ctx, "SELECT shorturl FROM repo WHERE url=$1", url)
 	err := row.Scan(&shorturl)
 	return shorturl, err
 }
 
-func (l *InDBStorage) Create(lnkRec LinkRecord) error {
-	_, err := l.db.ExecContext(context.Background(), `INSERT INTO repo (userid,shorturl,url) VALUES($1,$2,$3)`,
+func (l *InDBStorage) Create(ctx context.Context, lnkRec LinkRecord) error {
+	_, err := l.db.ExecContext(ctx, `INSERT INTO repo (userid,shorturl,url) VALUES($1,$2,$3)`,
 		lnkRec.UserID,
 		lnkRec.ShortURL,
 		lnkRec.URL)
@@ -117,21 +117,21 @@ func (l *InDBStorage) Create(lnkRec LinkRecord) error {
 	return nil
 }
 
-func (l *InDBStorage) BatchCreate(lnkRecs []LinkRecord) error {
+func (l *InDBStorage) BatchCreate(ctx context.Context, lnkRecs []LinkRecord) error {
 	tx, err := l.db.Begin()
 
 	if err != nil {
 		return err
 	}
 
-	stmt, err := tx.PrepareContext(context.Background(), "INSERT INTO repo (shorturl,url) VALUES($1,$2)")
+	stmt, err := tx.PrepareContext(ctx, "INSERT INTO repo (shorturl,url) VALUES($1,$2)")
 
 	if err != nil {
 		return fmt.Errorf("CAN'T PREPARE CONTEXT IN BATCH: [%v]", err)
 	}
 
 	for _, lnk := range lnkRecs {
-		_, err := stmt.ExecContext(context.Background(), lnk.ShortURL, lnk.URL)
+		_, err := stmt.ExecContext(ctx, lnk.ShortURL, lnk.URL)
 
 		if err != nil {
 			return fmt.Errorf("CAN'T EXEC PREPARED QUERY IN BATCH: [%v]", err)
@@ -149,15 +149,14 @@ func (l *InDBStorage) Ping() bool {
 	return true
 }
 
-func (l *InDBStorage) Urls(userid int) ([]LinkRecord, error) {
+func (l *InDBStorage) Urls(ctx context.Context, userid int) ([]LinkRecord, error) {
 	res := []LinkRecord{}
-	rows, err := l.db.QueryContext(context.Background(), `SELECT id,userid,shorturl,url FROM repo WHERE userid=$1`,
+	rows, err := l.db.QueryContext(ctx,
+		`SELECT id,userid,shorturl,url FROM repo WHERE userid=$1`,
 		userid)
 
 	if err != nil {
-		if err != sql.ErrNoRows {
-			return nil, fmt.Errorf("CAN'T EXEC QUERY IN URLs [%v]", err)
-		}
+		return nil, fmt.Errorf("CAN'T EXEC QUERY IN URLs [%v]", err)
 	}
 
 	defer rows.Close()
@@ -178,13 +177,13 @@ func (l *InDBStorage) Urls(userid int) ([]LinkRecord, error) {
 	return res, nil
 }
 
-func (l *InDBStorage) BatchDel(userid int, urls []string) error {
+func (l *InDBStorage) BatchDel(ctx context.Context, userid int, urls []string) error {
 	tx, err := l.db.Begin()
 	if err != nil {
 		return err
 	}
 
-	stmt, err := tx.PrepareContext(context.Background(), "UPDATE repo SET is_deleted=true WHERE userid=$1 AND shorturl=$2")
+	stmt, err := tx.PrepareContext(ctx, "UPDATE repo SET is_deleted=true WHERE userid=$1 AND shorturl=$2")
 
 	if err != nil {
 		return fmt.Errorf("CAN'T PREPARE SQL IN BATCH DELETE: [%v]", err)

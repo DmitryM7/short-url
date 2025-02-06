@@ -7,7 +7,7 @@ import (
 	"github.com/DmitryM7/short-url.git/internal/logger"
 )
 
-var ErrRecWasDelete = errors.New("RECORD WAS DELETE")
+var ErrRecWasDelete = errors.New("RECORD WAS DELETED")
 
 const (
 	DBType   = "db"
