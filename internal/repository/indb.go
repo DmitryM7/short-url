@@ -57,12 +57,15 @@ func (l *InDBStorage) connect() error {
 func (l *InDBStorage) createSchema() error {
 	var tableName string
 
-	row := l.db.QueryRowContext(context.Background(), "SELECT schemaname from pg_stat_user_tables WHERE relname LIKE 'repo'")
+	row := l.db.QueryRowContext(context.Background(), `SELECT schemaname 
+	                                                   FROM pg_stat_user_tables 
+											           WHERE relname LIKE 'repo'`)
 
 	err := row.Scan(&tableName)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			l.Logger.Debugln("TABLE repo NOT EXIST. CREATE IT.")
 			_, err = l.db.ExecContext(context.Background(), `CREATE TABLE repo ("id" SERIAL PRIMARY KEY,
 																			   "userid" INT,																			
 			                                                                   "shorturl" VARCHAR NOT NULL UNIQUE,
@@ -279,7 +282,7 @@ func (l *InDBStorage) fanIn(doneCh chan struct{}, resultChs ...chan bool) chan b
 		}()
 	}
 
-	// ждём завершения всех горутин
+	// ждём завершения всех горутин1
 	wg.Wait()
 	// когда все горутины завершились, закрываем результирующий канал
 	close(finalCh)
