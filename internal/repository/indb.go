@@ -199,7 +199,7 @@ func (l *InDBStorage) BatchDel(ctx context.Context, userid int, urls []string) e
 
 	l.Logger.Infoln(userid)
 
-	channels := l.fanOut(doneCh, inputCh, userid, stmt)
+	channels := l.fanOut(ctx, doneCh, inputCh, userid, stmt)
 
 	l.fanIn(doneCh, channels...)
 
@@ -219,27 +219,27 @@ func (l *InDBStorage) generatorUrlsDel(input []string) chan string {
 	return inputCh
 }
 
-func (l *InDBStorage) fanOut(doneCh chan struct{}, inputCh chan string, userid int, stmt *sql.Stmt) []chan bool {
+func (l *InDBStorage) fanOut(ctx context.Context, doneCh chan struct{}, inputCh chan string, userid int, stmt *sql.Stmt) []chan bool {
 	numWorkers := 10
 	// каналы, в которые отправляются результаты
 	channels := make([]chan bool, numWorkers)
 
 	for i := 0; i < numWorkers; i++ {
-		channels[i] = l.urlsDel(doneCh, inputCh, userid, stmt)
+		channels[i] = l.urlsDel(ctx, doneCh, inputCh, userid, stmt)
 	}
 
 	// возвращаем слайс каналов
 	return channels
 }
 
-func (l *InDBStorage) urlsDel(doneCh chan struct{}, inputCh chan string, userid int, stmt *sql.Stmt) chan bool {
+func (l *InDBStorage) urlsDel(ctx context.Context, doneCh chan struct{}, inputCh chan string, userid int, stmt *sql.Stmt) chan bool {
 	res := make(chan bool)
 
 	go func() {
 		defer close(res)
 
 		for url := range inputCh {
-			_, err := stmt.ExecContext(context.Background(), userid, url)
+			_, err := stmt.ExecContext(ctx, userid, url)
 
 			if err != nil {
 				l.Logger.Infoln(err)
