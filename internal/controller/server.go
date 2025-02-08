@@ -358,6 +358,15 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 	userid, err := s.getUser(r)
 
 	if err != nil {
+		userid, err = s.sendAuthToken(w)
+
+		if err != nil {
+			s.actionError(w, "AUTH NEED BUT CAN'T:"+fmt.Sprintf("%s", err))
+			return
+		}
+	}
+
+	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
