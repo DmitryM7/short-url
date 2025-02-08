@@ -23,7 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-const maxDBExecuteTime = 60 * time.Second
+const maxDBExecuteTime = 120 * time.Second
 
 type (
 	Request struct {
@@ -411,10 +411,9 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
 	s.Logger.Infoln("URLS DELETE START")
 
-	//ctx, cancel := context.WithTimeout(context.Background(), maxDBExecuteTime)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), maxDBExecuteTime)
 
-	//defer cancel()
+	defer cancel()
 
 	userid, err := s.getUser(r)
 
