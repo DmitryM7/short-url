@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -16,6 +17,7 @@ type InFileStorage struct {
 }
 
 func NewInFileStorage(lg logger.MyLogger, exportFile string) (*InFileStorage, error) {
+	lg.Infoln("CREATE NEW IN FILE STORAGE")
 	inmem, err := NewInMemoryStorage(lg)
 	if err != nil {
 		return &InFileStorage{SavePath: exportFile}, err
@@ -26,8 +28,8 @@ func NewInFileStorage(lg logger.MyLogger, exportFile string) (*InFileStorage, er
 	}, nil
 }
 
-func (r *InFileStorage) Create(lnkRec LinkRecord) error {
-	err := r.InMemoryStorage.Create(lnkRec)
+func (r *InFileStorage) Create(ctx context.Context, lnkRec LinkRecord) error {
+	err := r.InMemoryStorage.Create(ctx, lnkRec)
 
 	if err != nil {
 		return err

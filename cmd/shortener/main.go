@@ -34,17 +34,27 @@ func main() {
 	repo, err := repository.NewStorageService(repoConf)
 
 	if err != nil {
-		lg.Fatalln("CANT INIT REPO" + fmt.Sprintf("%#v", err))
+		if repoConf.StorageType == repository.FileType {
+			repoConf.StorageType = repository.MemType
+			repo, err = repository.NewStorageService(repoConf)
+
+			if err != nil {
+				lg.Fatalln(err)
+			}
+		} else {
+			lg.Fatalln(err)
+		}
 	}
 
 	r := controller.NewRouter(lg, repo)
 
 	lg.Infoln("Starting server", "bndAdd", conf.BndAdd)
+	lg.Debugln("Conf params:", fmt.Sprintf("%+v", repoConf))
 
 	server := &http.Server{
 		Addr:         conf.BndAdd,
 		Handler:      r,
-		WriteTimeout: 5 * time.Second,
+		WriteTimeout: 30 * time.Second,
 		ReadTimeout:  30 * time.Second,
 	}
 

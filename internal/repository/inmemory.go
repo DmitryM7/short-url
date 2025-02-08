@@ -1,7 +1,9 @@
 package repository
 
 import (
+	"context"
 	"fmt"
+	"sync"
 
 	"github.com/DmitryM7/short-url.git/internal/logger"
 )
@@ -13,23 +15,29 @@ const (
 type InMemoryStorage struct {
 	Repo   map[string]string
 	Logger logger.MyLogger
+	m      *sync.RWMutex
 }
 
 func NewInMemoryStorage(lg logger.MyLogger) (*InMemoryStorage, error) {
+	lg.Infoln("CREATE NEW IN MEMORE STORAGE")
+
 	return &InMemoryStorage{
 		Logger: lg,
 		Repo:   make(map[string]string, rLength),
+		m:      &sync.RWMutex{},
 	}, nil
 }
 
-func (r *InMemoryStorage) Create(lnkRec LinkRecord) error {
+func (r *InMemoryStorage) Create(ctx context.Context, lnkRec LinkRecord) error {
+	r.m.Lock()
 	r.Repo[lnkRec.ShortURL] = lnkRec.URL
+	r.m.Unlock()
 	return nil
 }
 
-func (r *InMemoryStorage) BatchCreate(lnkRecs []LinkRecord) error {
+func (r *InMemoryStorage) BatchCreate(ctx context.Context, lnkRecs []LinkRecord) error {
 	for _, v := range lnkRecs {
-		err := r.Create(v)
+		err := r.Create(ctx, v)
 
 		if err != nil {
 			return err
@@ -39,8 +47,10 @@ func (r *InMemoryStorage) BatchCreate(lnkRecs []LinkRecord) error {
 	return nil
 }
 
-func (r *InMemoryStorage) Get(shorturl string) (string, error) {
+func (r *InMemoryStorage) Get(ctx context.Context, shorturl string) (string, error) {
+	r.m.RLock()
 	l, err := r.Repo[shorturl]
+	r.m.RUnlock()
 
 	if !err {
 		return "", fmt.Errorf("CAN'T FIND LINK BY HASH")
@@ -49,7 +59,7 @@ func (r *InMemoryStorage) Get(shorturl string) (string, error) {
 	return l, nil
 }
 
-func (r *InMemoryStorage) GetByURL(url string) (string, error) {
+func (r *InMemoryStorage) GetByURL(ctx context.Context, url string) (string, error) {
 	for k, v := range r.Repo {
 		if v == url {
 			return k, nil
@@ -60,4 +70,22 @@ func (r *InMemoryStorage) GetByURL(url string) (string, error) {
 
 func (r *InMemoryStorage) Ping() bool {
 	return true
+}
+
+func (r *InMemoryStorage) Urls(ctx context.Context, userid int) ([]LinkRecord, error) {
+	res := []LinkRecord{}
+
+	for k, v := range r.Repo {
+		lnkRec := LinkRecord{
+			ShortURL: k,
+			URL:      v,
+		}
+		res = append(res, lnkRec)
+	}
+
+	return res, nil
+}
+
+func (r *InMemoryStorage) BatchDel(ctx context.Context, userid int, ursl []string) error {
+	return nil
 }

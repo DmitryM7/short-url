@@ -1,10 +1,13 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/DmitryM7/short-url.git/internal/logger"
 )
+
+var ErrRecWasDelete = errors.New("RECORD WAS DELETED")
 
 const (
 	DBType   = "db"
