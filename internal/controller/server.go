@@ -70,6 +70,8 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	var answerStatus = http.StatusCreated
 	var userid int
 
+	s.Logger.Infoln("Context TM:", maxDBExecuteTime)
+
 	ctx, cancel := context.WithTimeout(context.Background(), maxDBExecuteTime)
 
 	defer cancel()
