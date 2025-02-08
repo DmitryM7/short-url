@@ -34,7 +34,6 @@ func main() {
 	repo, err := repository.NewStorageService(repoConf)
 
 	if err != nil {
-
 		if repoConf.StorageType == repository.FileType {
 			repoConf.StorageType = repository.MemType
 			repo, err = repository.NewStorageService(repoConf)
@@ -55,7 +54,7 @@ func main() {
 	server := &http.Server{
 		Addr:         conf.BndAdd,
 		Handler:      r,
-		WriteTimeout: 5 * time.Second,
+		WriteTimeout: 30 * time.Second,
 		ReadTimeout:  30 * time.Second,
 	}
 

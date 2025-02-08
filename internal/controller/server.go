@@ -50,6 +50,8 @@ type (
 		userIDCounter int
 		secretKey     string
 	}
+
+	contextKeyType string
 )
 
 const CookieLiveMinutes = 25
@@ -65,6 +67,7 @@ func (s *MyServer) actionError(w http.ResponseWriter, e string) {
 }
 
 func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
+	var currActionName contextKeyType = "actionName"
 	s.Logger.Debugln("Start ActionCreateUrl")
 
 	var answerStatus = http.StatusCreated
@@ -72,9 +75,7 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 
 	s.Logger.Infoln("Context TM:", maxDBExecuteTime)
 
-	ctx, cancel := context.WithTimeout(context.Background(), maxDBExecuteTime)
-
-	defer cancel()
+	ctx := context.WithValue(context.Background(), currActionName, "createurl")
 
 	userid, err := s.getUser(r)
 
