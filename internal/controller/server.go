@@ -73,8 +73,6 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	var answerStatus = http.StatusCreated
 	var userid int
 
-	s.Logger.Infoln("Context TM:", maxDBExecuteTime)
-
 	ctx := context.WithValue(context.Background(), currActionName, "createurl")
 
 	userid, err := s.getUser(r)
@@ -414,7 +412,9 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
 	s.Logger.Infoln("URLS DELETE START")
 
-	ctx, cancel := context.WithTimeout(context.Background(), maxDBExecuteTime)
+	var currActionName contextKeyType = "actionName"
+
+	ctx := context.WithValue(context.Background(), currActionName, "actionAPIUrlsDelete")
 
 	defer cancel()
 
