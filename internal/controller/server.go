@@ -371,6 +371,7 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(lnkRecords) == 0 {
+		s.Logger.Debugln("CAN'T FIND LINKS FOR USER")
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
