@@ -416,8 +416,6 @@ func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
 
 	ctx := context.WithValue(context.Background(), currActionName, "actionAPIUrlsDelete")
 
-	defer cancel()
-
 	userid, err := s.getUser(r)
 
 	s.Logger.Infoln("URLS DELETE USER IS CHECKED")
