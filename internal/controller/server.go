@@ -23,7 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-const maxDBExecuteTime = 120 * time.Second
+const maxDBExecuteTime = 180 * time.Second
 
 type (
 	Request struct {
