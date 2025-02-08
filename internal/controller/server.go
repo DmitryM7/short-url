@@ -411,9 +411,10 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
 	s.Logger.Infoln("URLS DELETE START")
 
-	ctx, cancel := context.WithTimeout(context.Background(), maxDBExecuteTime)
+	//ctx, cancel := context.WithTimeout(context.Background(), maxDBExecuteTime)
+	ctx := context.Background()
 
-	defer cancel()
+	//defer cancel()
 
 	userid, err := s.getUser(r)
 
