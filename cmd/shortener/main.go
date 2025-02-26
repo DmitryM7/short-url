@@ -49,7 +49,7 @@ func main() {
 	r := controller.NewRouter(lg, repo)
 
 	lg.Infoln("Starting server", "bndAdd", conf.BndAdd)
-	lg.Debugln("Conf params:", fmt.Sprintf("%+v", repoConf))
+	lg.Debugln("Conf params:", fmt.Sprintf("%#v", repoConf))
 
 	server := &http.Server{
 		Addr:         conf.BndAdd,

@@ -135,8 +135,7 @@ func TestActionCreateURL(t *testing.T) {
 }
 
 func TestActionRedirect(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), maxDBExecuteTime)
-	defer cancel()
+	ctx := context.Background()
 	lnkRec := repository.LinkRecord{
 		URL: "www.ya.ru",
 	}

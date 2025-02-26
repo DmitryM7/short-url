@@ -23,8 +23,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-const maxDBExecuteTime = 180 * time.Second
-
 type (
 	Request struct {
 		URL string `json:"url"`
@@ -73,7 +71,7 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	var answerStatus = http.StatusCreated
 	var userid int
 
-	ctx := context.WithValue(context.Background(), currActionName, "createurl")
+	ctx := context.WithValue(r.Context(), currActionName, "createurl")
 
 	userid, err := s.getUser(r)
 
@@ -81,7 +79,7 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		userid, err = s.sendAuthToken(w)
 
 		if err != nil {
-			s.actionError(w, "AUTH NEED BUT CAN'T:"+fmt.Sprintf("%s", err))
+			s.actionError(w, "AUTH NEED BUT CAN'T:"+err.Error())
 			return
 		}
 	}
@@ -135,16 +133,14 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		s.Logger.Errorln("CANT SAVE REPO:" + fmt.Sprintf("%s", err))
+		s.Logger.Errorln("CANT SAVE REPO:" + err.Error())
 	}
 }
 
 func (s *MyServer) actionRedirect(w http.ResponseWriter, r *http.Request) {
 	s.Logger.Debugln("Start Redirect")
 
-	ctx, cancel := context.WithTimeout(r.Context(), maxDBExecuteTime)
-
-	defer cancel()
+	ctx := r.Context()
 
 	id := strings.TrimPrefix(r.URL.Path, "/")
 
@@ -161,7 +157,7 @@ func (s *MyServer) actionRedirect(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		s.actionError(w, fmt.Sprintf("CAN'T GET SHORT LINK FROM REPO: [%v]", err))
+		s.actionError(w, "CAN'T GET SHORT LINK FROM REPO: "+err.Error())
 		return
 	}
 
@@ -208,9 +204,7 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 	var answerStatus = http.StatusCreated
 	s.Logger.Debugln("Start Shorten")
 
-	ctx, cancel := context.WithTimeout(r.Context(), maxDBExecuteTime)
-
-	defer cancel()
+	ctx := r.Context()
 
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
@@ -286,9 +280,7 @@ func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 	s.Logger.Debugln("Start Batch")
 	body, err := io.ReadAll(r.Body)
 
-	ctx, cancel := context.WithTimeout(r.Context(), maxDBExecuteTime)
-
-	defer cancel()
+	ctx := r.Context()
 
 	if err != nil {
 		s.actionError(w, "CAN'T READ BODY FROM REQUEST")
@@ -352,9 +344,7 @@ func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), maxDBExecuteTime)
-
-	defer cancel()
+	ctx := r.Context()
 
 	userid, err := s.getUser(r)
 
@@ -362,7 +352,7 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 		userid, err = s.sendAuthToken(w)
 
 		if err != nil {
-			s.actionError(w, "AUTH NEED BUT CAN'T:"+fmt.Sprintf("%s", err))
+			s.actionError(w, "AUTH NEED BUT CAN'T:"+err.Error())
 			return
 		}
 	}

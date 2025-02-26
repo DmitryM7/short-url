@@ -60,11 +60,14 @@ func (r *InMemoryStorage) Get(ctx context.Context, shorturl string) (string, err
 }
 
 func (r *InMemoryStorage) GetByURL(ctx context.Context, url string) (string, error) {
+	r.m.RLock()
 	for k, v := range r.Repo {
 		if v == url {
+			r.m.RUnlock()
 			return k, nil
 		}
 	}
+	r.m.RUnlock()
 	return "", fmt.Errorf("NO URL IN REPO")
 }
 
@@ -74,7 +77,7 @@ func (r *InMemoryStorage) Ping() bool {
 
 func (r *InMemoryStorage) Urls(ctx context.Context, userid int) ([]LinkRecord, error) {
 	res := []LinkRecord{}
-
+	r.m.RLock()
 	for k, v := range r.Repo {
 		lnkRec := LinkRecord{
 			ShortURL: k,
@@ -82,7 +85,7 @@ func (r *InMemoryStorage) Urls(ctx context.Context, userid int) ([]LinkRecord, e
 		}
 		res = append(res, lnkRec)
 	}
-
+	r.m.RUnlock()
 	return res, nil
 }
 
