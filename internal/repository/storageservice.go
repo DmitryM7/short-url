@@ -34,8 +34,8 @@ func (s *StorageService) BatchCreate(ctx context.Context, lnkRecs []LinkRecord) 
 	return lnkRecs, nil
 }
 
-func (s *StorageService) BatchDel(ctx context.Context, userid int, urls []string) error {
-	return s.storage.BatchDel(ctx, userid, urls)
+func (s *StorageService) BatchDel(ctx context.Context, userid int, urls []string) {
+	s.storage.BatchDel(ctx, userid, urls)
 }
 
 func (s *StorageService) сalcShortURL(url string) string {

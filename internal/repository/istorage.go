@@ -8,6 +8,6 @@ type IStorage interface {
 	GetByURL(ctx context.Context, url string) (string, error)
 	BatchCreate(ctx context.Context, lnkRecs []LinkRecord) error
 	Urls(ctx context.Context, userid int) ([]LinkRecord, error)
-	BatchDel(ctx context.Context, userid int, urls []string) error
+	BatchDel(ctx context.Context, userid int, urls []string)
 	Ping() bool
 }

@@ -28,6 +28,7 @@ func NewStorage(cfg StorageConfig) (IStorage, error) {
 	switch cfg.StorageType {
 	case DBType:
 		return NewInDBStorage(cfg.Logger, cfg.DatabaseDSN)
+
 	case FileType:
 		repo, err := NewInFileStorage(cfg.Logger, cfg.FilePath)
 		if err != nil {

@@ -89,6 +89,6 @@ func (r *InMemoryStorage) Urls(ctx context.Context, userid int) ([]LinkRecord, e
 	return res, nil
 }
 
-func (r *InMemoryStorage) BatchDel(ctx context.Context, userid int, ursl []string) error {
-	return nil
+func (r *InMemoryStorage) BatchDel(ctx context.Context, userid int, ursl []string) {
+
 }

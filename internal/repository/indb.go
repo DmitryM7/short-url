@@ -4,23 +4,34 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sync"
 
 	"github.com/DmitryM7/short-url.git/internal/logger"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-type InDBStorage struct {
-	Logger      logger.MyLogger
-	DatabaseDSN string
-	db          *sql.DB
-}
+type (
+	BatchDelMessage struct {
+		Person int
+		URL    string
+	}
+
+	InDBStorage struct {
+		Logger      logger.MyLogger
+		DatabaseDSN string
+		db          *sql.DB
+
+		cdata chan BatchDelMessage
+		cend  chan int
+		tx    *sql.Tx
+	}
+)
 
 func NewInDBStorage(lg logger.MyLogger, dsn string) (*InDBStorage, error) {
 	lg.Infoln("CREATE NEW DB STORAGE")
 	st := InDBStorage{
 		DatabaseDSN: dsn,
 		Logger:      lg,
+		tx:          nil,
 	}
 
 	err := st.connect()
@@ -34,6 +45,11 @@ func NewInDBStorage(lg logger.MyLogger, dsn string) (*InDBStorage, error) {
 	if err != nil {
 		return &st, fmt.Errorf("CAN'T CREATE SCHEMA [%v]", err)
 	}
+
+	st.cdata = make(chan BatchDelMessage)
+	st.cend = make(chan int)
+
+	go st.FlowDel(context.Background())
 
 	return &st, err
 }
@@ -180,112 +196,73 @@ func (l *InDBStorage) Urls(ctx context.Context, userid int) ([]LinkRecord, error
 	return res, nil
 }
 
-func (l *InDBStorage) BatchDel(ctx context.Context, userid int, urls []string) error {
-	tx, err := l.db.Begin()
-	if err != nil {
-		return err
-	}
+func (l *InDBStorage) FlowDel(ctx context.Context) {
+	var (
+		err, err0 error
+		stmt      *sql.Stmt
+	)
 
-	stmt, err := tx.PrepareContext(ctx, "UPDATE repo SET is_deleted=true WHERE userid=$1 AND shorturl=$2")
+	hasErrorInPacket := false
 
-	if err != nil {
-		return fmt.Errorf("CAN'T PREPARE SQL IN BATCH DELETE: [%v]", err)
-	}
+	for {
+		select {
+		case message := <-l.cdata:
+			if l.tx == nil {
+				l.tx, err = l.db.Begin()
+				hasErrorInPacket = false
 
-	doneCh := make(chan struct{})
-	defer close(doneCh)
+				if err != nil {
+					l.Logger.Errorln("CAN'T OPEN TRANSACTION:" + err.Error())
+				}
 
-	inputCh := l.generatorUrlsDel(urls)
+				stmt, err0 = l.tx.PrepareContext(ctx, "UPDATE repo SET is_deleted=true WHERE userid=$1 AND shorturl=$2")
 
-	l.Logger.Infoln(userid)
-
-	channels := l.fanOut(ctx, doneCh, inputCh, userid, stmt)
-
-	l.fanIn(doneCh, channels...)
-
-	return tx.Commit()
-}
-
-func (l *InDBStorage) generatorUrlsDel(input []string) chan string {
-	inputCh := make(chan string)
-
-	go func() {
-		defer close(inputCh)
-
-		for _, url := range input {
-			inputCh <- url
-		}
-	}()
-	return inputCh
-}
-
-func (l *InDBStorage) fanOut(ctx context.Context, doneCh chan struct{}, inputCh chan string, userid int, stmt *sql.Stmt) []chan bool {
-	numWorkers := 10
-	// каналы, в которые отправляются результаты
-	channels := make([]chan bool, numWorkers)
-
-	for i := 0; i < numWorkers; i++ {
-		channels[i] = l.urlsDel(ctx, doneCh, inputCh, userid, stmt)
-	}
-
-	// возвращаем слайс каналов
-	return channels
-}
-
-func (l *InDBStorage) urlsDel(ctx context.Context, doneCh chan struct{}, inputCh chan string, userid int, stmt *sql.Stmt) chan bool {
-	res := make(chan bool)
-
-	go func() {
-		defer close(res)
-
-		for url := range inputCh {
-			_, err := stmt.ExecContext(ctx, userid, url)
-
-			if err != nil {
-				l.Logger.Infoln(err)
-			}
-			select {
-			case <-doneCh:
-				return
-			case res <- err != nil:
-			}
-		}
-	}()
-
-	return res
-}
-
-func (l *InDBStorage) fanIn(doneCh chan struct{}, resultChs ...chan bool) chan bool {
-	finalCh := make(chan bool)
-
-	var wg sync.WaitGroup
-
-	for _, ch := range resultChs {
-		chClosure := ch
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
-			// получаем данные из канала
-			for data := range chClosure {
-				select {
-				// выходим из горутины, если канал закрылся
-				case <-doneCh:
-					return
-				case <-chClosure:
-					return
-				// если не закрылся, отправляем данные в конечный выходной канал
-				case finalCh <- data:
+				if err0 != nil {
+					l.Logger.Errorln("CAN'T PREPARE CONTEXT: ", err.Error())
+					hasErrorInPacket = true
 				}
 			}
-		}()
+
+			l.Logger.Infoln("Del id:" + message.URL)
+
+			_, err1 := stmt.ExecContext(ctx, message.Person, message.URL)
+
+			if err1 != nil {
+				l.Logger.Errorln("CAN'T EXEC CONTEXT:" + err.Error())
+				hasErrorInPacket = true
+			}
+		case <-l.cend:
+			if l.tx != nil {
+				if !hasErrorInPacket {
+					l.Logger.Infoln("COMMIT")
+					err := l.tx.Commit()
+					if err != nil {
+						l.Logger.Errorln("CAN'T COMMIT TRANSACTION: " + err.Error())
+					}
+					l.tx = nil
+				} else {
+					l.Logger.Infoln("ROLLBACK")
+
+					err := l.tx.Rollback()
+					if err != nil {
+						l.Logger.Errorln("CAN'T ROLLBACK TRANSACTION: " + err.Error())
+					}
+					l.tx = nil
+				}
+			}
+		}
+	}
+}
+
+func (l *InDBStorage) BatchDel(ctx context.Context, userid int, urls []string) {
+	for _, url := range urls {
+		message := BatchDelMessage{
+			Person: userid,
+			URL:    url,
+		}
+
+		l.cdata <- message
 	}
 
-	// ждём завершения всех горутин1
-	wg.Wait()
-	// когда все горутины завершились, закрываем результирующий канал
-	close(finalCh)
-
-	return finalCh
+	l.cend <- userid
 }

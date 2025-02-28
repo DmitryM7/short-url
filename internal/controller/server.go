@@ -441,10 +441,7 @@ func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func() {
-		err = s.Repo.BatchDel(ctx, userid, idsToDel)
-		if err != nil {
-			s.Logger.Errorln(err)
-		}
+		s.Repo.BatchDel(ctx, userid, idsToDel)
 	}()
 
 	w.WriteHeader(http.StatusAccepted)
