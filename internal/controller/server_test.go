@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -134,7 +135,11 @@ func TestActionCreateURL(t *testing.T) {
 }
 
 func TestActionRedirect(t *testing.T) {
-	_, err := Repo.Create("www.ya.ru")
+	ctx := context.Background()
+	lnkRec := repository.LinkRecord{
+		URL: "www.ya.ru",
+	}
+	_, err := Repo.Create(ctx, lnkRec)
 
 	if err != nil {
 		Logger.Fatalln("CAN'T CREATE RECORD")

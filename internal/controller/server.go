@@ -3,11 +3,14 @@ package controller
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,10 +43,16 @@ type (
 	}
 
 	MyServer struct {
-		Logger logger.MyLogger
-		Repo   repository.StorageService
+		Logger        logger.MyLogger
+		Repo          repository.StorageService
+		userIDCounter int
+		secretKey     string
 	}
+
+	contextKeyType string
 )
+
+const CookieLiveMinutes = 25
 
 func (s *MyServer) actionError(w http.ResponseWriter, e string) {
 	s.Logger.Infoln(e)
@@ -56,7 +65,25 @@ func (s *MyServer) actionError(w http.ResponseWriter, e string) {
 }
 
 func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
+	var currActionName contextKeyType = "actionName"
+	s.Logger.Debugln("Start ActionCreateUrl")
+
 	var answerStatus = http.StatusCreated
+	var userid int
+
+	ctx := context.WithValue(r.Context(), currActionName, "createurl")
+
+	userid, err := s.getUser(r)
+
+	if err != nil {
+		userid, err = s.sendAuthToken(w)
+
+		if err != nil {
+			s.actionError(w, "AUTH NEED BUT CAN'T:"+err.Error())
+			return
+		}
+	}
+
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 
@@ -72,7 +99,12 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL, err := s.Repo.Create(url)
+	lnkRec := repository.LinkRecord{
+		UserID: userid,
+		URL:    url,
+	}
+
+	newURL, err := s.Repo.Create(ctx, lnkRec)
 
 	var perr *pgconn.PgError
 
@@ -83,7 +115,7 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		 * но чтобы выполнить букву задания                                    *
 		 * делаем повторное получение shorturl из БД.                          *
 		 ***********************************************************************/
-		newURL, err = s.Repo.GetByURL(url)
+		newURL, err = s.Repo.GetByURL(ctx, url)
 		if err != nil {
 			s.actionError(w, "CAN'T RECEIVE SHORTURL FROM DB")
 			return
@@ -91,6 +123,7 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 		answerStatus = http.StatusConflict
 	}
 
+	s.Logger.Infoln("CURR USER IS = " + strconv.Itoa(userid))
 	w.Header().Set("Content-type", "text/plain")
 	w.WriteHeader(answerStatus)
 	_, errWrite := w.Write([]byte(conf.RetAdd + "/" + newURL))
@@ -100,12 +133,14 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		s.Logger.Errorln("CANT SAVE REPO:" + fmt.Sprintf("%s", err))
+		s.Logger.Errorln("CANT SAVE REPO:" + err.Error())
 	}
 }
 
 func (s *MyServer) actionRedirect(w http.ResponseWriter, r *http.Request) {
 	s.Logger.Debugln("Start Redirect")
+
+	ctx := r.Context()
 
 	id := strings.TrimPrefix(r.URL.Path, "/")
 
@@ -114,10 +149,15 @@ func (s *MyServer) actionRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL, err := s.Repo.Get(id)
+	newURL, err := s.Repo.Get(ctx, id)
 
 	if err != nil {
-		s.actionError(w, "CAN'T GET SHORT LINK FROM REPO")
+		if errors.Is(err, repository.ErrRecWasDelete) {
+			w.WriteHeader(http.StatusGone)
+			return
+		}
+
+		s.actionError(w, "CAN'T GET SHORT LINK FROM REPO: "+err.Error())
 		return
 	}
 
@@ -164,6 +204,8 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 	var answerStatus = http.StatusCreated
 	s.Logger.Debugln("Start Shorten")
 
+	ctx := r.Context()
+
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 
@@ -187,7 +229,12 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL, err := s.Repo.Create(request.URL)
+	lnkRec := repository.LinkRecord{
+		UserID: 100,
+		URL:    request.URL,
+	}
+
+	newURL, err := s.Repo.Create(ctx, lnkRec)
 
 	var perr *pgconn.PgError
 
@@ -198,7 +245,7 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 		 * но чтобы выполнить букву задания                                    *
 		 * делаем повторное получение shorturl из БД.                          *
 		 ***********************************************************************/
-		newURL, err = s.Repo.GetByURL(request.URL)
+		newURL, err = s.Repo.GetByURL(ctx, request.URL)
 		if err != nil {
 			s.actionError(w, "CAN'T RECEIVE SHORTURL FROM DB")
 			return
@@ -230,7 +277,10 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
+	s.Logger.Debugln("Start Batch")
 	body, err := io.ReadAll(r.Body)
+
+	ctx := r.Context()
 
 	if err != nil {
 		s.actionError(w, "CAN'T READ BODY FROM REQUEST")
@@ -262,7 +312,7 @@ func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 		lnkRecs = append(lnkRecs, repository.LinkRecord{URL: v.OriginalURL, CorrelationID: v.CorrelationID})
 	}
 
-	lnkResRecs, err := s.Repo.BatchCreate(lnkRecs)
+	lnkResRecs, err := s.Repo.BatchCreate(ctx, lnkRecs)
 
 	if err != nil {
 		s.actionError(w, "CANT SAVE DATA IN REPO")
@@ -293,9 +343,153 @@ func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	userid, err := s.getUser(r)
+
+	if err != nil {
+		userid, err = s.sendAuthToken(w)
+
+		if err != nil {
+			s.actionError(w, "AUTH NEED BUT CAN'T:"+err.Error())
+			return
+		}
+	}
+
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	s.Logger.Infoln("CURR USER IS = " + strconv.Itoa(userid))
+	lnkRecords, err := s.Repo.Urls(ctx, userid)
+
+	if err != nil {
+		s.actionError(w, "CAN'T GET URLS")
+		return
+	}
+
+	if len(lnkRecords) == 0 {
+		s.Logger.Debugln("CAN'T FIND LINKS FOR USER")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Добавляем к короткому адресу указание текущего хоста
+	for k := range lnkRecords {
+		lnkRecords[k].ShortURL = conf.RetAdd + "/" + lnkRecords[k].ShortURL
+	}
+
+	answ, err := json.Marshal(&lnkRecords)
+
+	if err != nil {
+		s.actionError(w, "CAN'T MARSHAL ANSWER")
+		return
+	}
+
+	s.Logger.Infoln("JSON:" + string(answ))
+	w.Header().Set("Content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(answ)
+
+	if err != nil {
+		s.actionError(w, "CAN'T WRITE ANSWER TO BODY")
+		return
+	}
+}
+
+func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
+	s.Logger.Infoln("URLS DELETE START")
+
+	var currActionName contextKeyType = "actionName"
+
+	ctx := context.WithValue(context.Background(), currActionName, "actionAPIUrlsDelete")
+
+	userid, err := s.getUser(r)
+
+	s.Logger.Infoln("URLS DELETE USER IS CHECKED")
+
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	s.Logger.Infoln("CURR USER IS = " + strconv.Itoa(userid))
+
+	body, err := io.ReadAll(r.Body)
+
+	if err != nil {
+		s.actionError(w, "CAN'T READ BODY")
+		return
+	}
+	defer r.Body.Close()
+
+	if string(body) == "" {
+		s.actionError(w, "BODY IS EMPTY")
+		return
+	}
+
+	s.Logger.Infoln("URLS DELETE:" + string(body))
+
+	idsToDel := []string{}
+
+	err = json.Unmarshal(body, &idsToDel)
+
+	if err != nil {
+		s.actionError(w, "CAN'T LOAD BODY TO SLICE.")
+	}
+
+	go func() {
+		s.Repo.BatchDel(ctx, userid, idsToDel)
+	}()
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (s *MyServer) sendAuthToken(w http.ResponseWriter) (int, error) {
+	userid := s.userIDCounter
+	jwtProvider := NewJwtProvider(time.Hour, s.secretKey)
+
+	tokenStr, err := jwtProvider.GetStr(s.secretKey, userid)
+
+	if err != nil {
+		return 0, fmt.Errorf("CAN'T CREATE JWT TOKEN: [%v]", err)
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:    "token",
+		Value:   tokenStr,
+		Expires: time.Now().Add(CookieLiveMinutes * time.Minute),
+	})
+
+	s.userIDCounter++
+
+	return userid, nil
+}
+
+func (s *MyServer) getUser(r *http.Request) (int, error) {
+	cookie, err := r.Cookie("token")
+
+	if err != nil {
+		s.Logger.Infoln("NO COOKIE")
+		return 0, fmt.Errorf("CAN'T READ COOKIE [%v]", err)
+	}
+
+	jwtProvider := NewJwtProvider(time.Hour, s.secretKey)
+
+	userid, err := jwtProvider.GetUserID(cookie.Value)
+
+	if err != nil {
+		return userid, fmt.Errorf("CAN'T GETUSER ID [%v]", err)
+	}
+
+	return userid, nil
+}
+
 func (s *MyServer) actionStart(next http.Handler) http.Handler {
 	f := func(w http.ResponseWriter, r *http.Request) {
-		s.Logger.Debugln(fmt.Sprintf("Req: %s %s\n", r.Host, r.URL.Path))
+		s.Logger.Debugln(fmt.Sprintf("Req: %s %s", r.Host, r.URL.Path))
 
 		begTime := time.Now()
 		uri := r.RequestURI
@@ -326,8 +520,6 @@ func (s *MyServer) actionStart(next http.Handler) http.Handler {
 			}
 		}
 
-		s.Logger.Debugln(r.Header.Get("Content-Encoding"))
-
 		if r.Header.Get("Content-Encoding") == "gzip" {
 			buf, err := io.ReadAll(r.Body) // handle the error
 
@@ -346,11 +538,12 @@ func (s *MyServer) actionStart(next http.Handler) http.Handler {
 
 			r.Body = gz
 		}
+
 		next.ServeHTTP(&lw, r)
 
 		duration := time.Since(begTime)
 
-		s.Logger.Infoln(
+		s.Logger.Debugln(
 			"uri", uri,
 			"method", method,
 			"duration", duration,
@@ -362,9 +555,18 @@ func (s *MyServer) actionStart(next http.Handler) http.Handler {
 }
 
 func NewServer(log logger.MyLogger, repo repository.StorageService) (*MyServer, error) {
+	b := make([]byte, 2)
+	_, err := rand.Read(b)
+	if err != nil {
+		return &MyServer{}, err
+	}
+
 	return &MyServer{
-		Logger: log,
-		Repo:   repo,
+		Logger:    log,
+		Repo:      repo,
+		secretKey: "KEY_FOR_SECRET",
+		//userIDCounter: int(time.Now().Unix()),
+		userIDCounter: int(b[0] + b[1]),
 	}, nil
 }
 
@@ -379,9 +581,13 @@ func NewRouter(log logger.MyLogger, repo repository.StorageService) *chi.Mux {
 	R.Use(server.actionStart)
 
 	R.Route("/", func(r chi.Router) {
+		r.Route("/api", func(r chi.Router) {
+			r.Post("/shorten", server.actionShorten)
+			r.Post("/shorten/batch", server.actionBatch)
+			r.Get("/user/urls", server.actionAPIUrls)
+			r.Delete("/user/urls", server.actionAPIUrlsDelete)
+		})
 		r.Post("/", server.actionCreateURL)
-		r.Post("/api/shorten", server.actionShorten)
-		r.Post("/api/shorten/batch", server.actionBatch)
 		r.Get("/{id}", server.actionRedirect)
 		r.Get("/ping", server.actionPing)
 		r.Get("/tst", server.actionTest)

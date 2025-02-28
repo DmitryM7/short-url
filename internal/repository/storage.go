@@ -1,10 +1,13 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/DmitryM7/short-url.git/internal/logger"
 )
+
+var ErrRecWasDelete = errors.New("RECORD WAS DELETED")
 
 const (
 	DBType   = "db"
@@ -25,6 +28,7 @@ func NewStorage(cfg StorageConfig) (IStorage, error) {
 	switch cfg.StorageType {
 	case DBType:
 		return NewInDBStorage(cfg.Logger, cfg.DatabaseDSN)
+
 	case FileType:
 		repo, err := NewInFileStorage(cfg.Logger, cfg.FilePath)
 		if err != nil {
