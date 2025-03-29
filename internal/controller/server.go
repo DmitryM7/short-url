@@ -7,12 +7,15 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"expvar"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"net/http/pprof"
 
 	"github.com/DmitryM7/short-url.git/internal/conf"
 	"github.com/DmitryM7/short-url.git/internal/logger"
@@ -52,8 +55,10 @@ type (
 	contextKeyType string
 )
 
+// CookieLiveMinutes - время жизни авторизационного куки в минутах
 const CookieLiveMinutes = 25
 
+// actionError - выводит клиенту 400 статус с сообщением e
 func (s *MyServer) actionError(w http.ResponseWriter, e string) {
 	s.Logger.Infoln(e)
 	w.WriteHeader(http.StatusBadRequest)
@@ -64,6 +69,7 @@ func (s *MyServer) actionError(w http.ResponseWriter, e string) {
 	}
 }
 
+// actionCreateURL - создает короткую ссылку. Возвращает ее в виде простого текста.
 func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	var currActionName contextKeyType = "actionName"
 	s.Logger.Debugln("Start ActionCreateUrl")
@@ -137,6 +143,9 @@ func (s *MyServer) actionCreateURL(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// actionRedirect - принимает короткую ссылку в теле запроса. По полученному
+// значению ищет оригинальную ссылку в хранилище. Если ссылка найдена, то
+// перенаправляет клиента по найденному адресу.
 func (s *MyServer) actionRedirect(w http.ResponseWriter, r *http.Request) {
 	s.Logger.Debugln("Start Redirect")
 
@@ -164,6 +173,9 @@ func (s *MyServer) actionRedirect(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, newURL, http.StatusTemporaryRedirect)
 }
 
+// actionPing - проверяет соединение с БД, если соединие есть,
+// то возвращает 200 статус, если соединения нет, то возвращает
+// 500 статус.
 func (s *MyServer) actionPing(w http.ResponseWriter, r *http.Request) {
 	if !s.Repo.Ping() {
 		s.Logger.Infoln("NO DATABASE PING")
@@ -174,32 +186,8 @@ func (s *MyServer) actionPing(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *MyServer) actionTest(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/")
-
-	if id == "" {
-		s.actionError(w, "No required param 'ID' or ID is empty")
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	defer r.Body.Close()
-	s.Logger.Debugln(string(body))
-
-	if err != nil {
-		s.actionError(w, "CAN'T READ BODY")
-		return
-	}
-
-	w.Header().Set("Content-type", "text/plain")
-	w.WriteHeader(http.StatusCreated)
-	_, errWrite := w.Write(body)
-
-	if errWrite != nil {
-		s.actionError(w, "CAN'T WRITE BODY")
-		return
-	}
-}
+// actionShorten - получает в теле запроса json с длинной ссылкой и сохраняет в БД.
+// Возвращает результирующий json с короткой ссылкой.
 func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 	var answerStatus = http.StatusCreated
 	s.Logger.Debugln("Start Shorten")
@@ -276,6 +264,7 @@ func (s *MyServer) actionShorten(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// actionBatch - групповое добавление и получение коротких ссылок.
 func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 	s.Logger.Debugln("Start Batch")
 	body, err := io.ReadAll(r.Body)
@@ -343,6 +332,7 @@ func (s *MyServer) actionBatch(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// actionAPIUrls - возвращает ссылки текущего пользователя.
 func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -399,6 +389,7 @@ func (s *MyServer) actionAPIUrls(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// actionAPIUrlDelete - групповое удаление ссылок.
 func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
 	s.Logger.Infoln("URLS DELETE START")
 
@@ -447,6 +438,7 @@ func (s *MyServer) actionAPIUrlsDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+// sendAuthToke - вспомогательный метода для формирования токена.
 func (s *MyServer) sendAuthToken(w http.ResponseWriter) (int, error) {
 	userid := s.userIDCounter
 	jwtProvider := NewJwtProvider(time.Hour, s.secretKey)
@@ -468,6 +460,7 @@ func (s *MyServer) sendAuthToken(w http.ResponseWriter) (int, error) {
 	return userid, nil
 }
 
+// getUser - возращает текущего пользователя
 func (s *MyServer) getUser(r *http.Request) (int, error) {
 	cookie, err := r.Cookie("token")
 
@@ -487,6 +480,7 @@ func (s *MyServer) getUser(r *http.Request) (int, error) {
 	return userid, nil
 }
 
+// actionStart - промужеточный метод. Обеспечивает логирование запросов и сжатие запросов.
 func (s *MyServer) actionStart(next http.Handler) http.Handler {
 	f := func(w http.ResponseWriter, r *http.Request) {
 		s.Logger.Debugln(fmt.Sprintf("Req: %s %s", r.Host, r.URL.Path))
@@ -554,6 +548,33 @@ func (s *MyServer) actionStart(next http.Handler) http.Handler {
 	return http.HandlerFunc(f)
 }
 
+func Profiler() http.Handler {
+	r := chi.NewRouter()
+
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, r.RequestURI+"/pprof/", http.StatusMovedPermanently)
+	})
+	r.HandleFunc("/pprof", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, r.RequestURI+"/", http.StatusMovedPermanently)
+	})
+
+	r.HandleFunc("/pprof/*", pprof.Index)
+	r.HandleFunc("/pprof/cmdline", pprof.Cmdline)
+	r.HandleFunc("/pprof/profile", pprof.Profile)
+	r.HandleFunc("/pprof/symbol", pprof.Symbol)
+	r.HandleFunc("/pprof/trace", pprof.Trace)
+	r.Handle("/vars", expvar.Handler())
+
+	r.Handle("/pprof/goroutine", pprof.Handler("goroutine"))
+	r.Handle("/pprof/threadcreate", pprof.Handler("threadcreate"))
+	r.Handle("/pprof/mutex", pprof.Handler("mutex"))
+	r.Handle("/pprof/heap", pprof.Handler("heap"))
+	r.Handle("/pprof/block", pprof.Handler("block"))
+	r.Handle("/pprof/allocs", pprof.Handler("allocs"))
+
+	return r
+}
+
 func NewServer(log logger.MyLogger, repo repository.StorageService) (*MyServer, error) {
 	b := make([]byte, 2)
 	_, err := rand.Read(b)
@@ -578,9 +599,11 @@ func NewRouter(log logger.MyLogger, repo repository.StorageService) *chi.Mux {
 		log.Errorln("CAN'T CREATE SERVER")
 	}
 
-	R.Use(server.actionStart)
+	R.Mount("/debug", Profiler())
 
 	R.Route("/", func(r chi.Router) {
+		r.Use(server.actionStart)
+
 		r.Route("/api", func(r chi.Router) {
 			r.Post("/shorten", server.actionShorten)
 			r.Post("/shorten/batch", server.actionBatch)
@@ -590,8 +613,6 @@ func NewRouter(log logger.MyLogger, repo repository.StorageService) *chi.Mux {
 		r.Post("/", server.actionCreateURL)
 		r.Get("/{id}", server.actionRedirect)
 		r.Get("/ping", server.actionPing)
-		r.Get("/tst", server.actionTest)
-		r.Post("/tst", server.actionTest)
 	})
 
 	return R

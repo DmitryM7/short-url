@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	_ "net/http/pprof"
+
 	"github.com/DmitryM7/short-url.git/internal/conf"
 	"github.com/DmitryM7/short-url.git/internal/controller"
 	"github.com/DmitryM7/short-url.git/internal/logger"
