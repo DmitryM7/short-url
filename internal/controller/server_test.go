@@ -1,7 +1,10 @@
 package controller
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"flag"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,17 +12,17 @@ import (
 	"strings"
 	"testing"
 
-	"flag"
-
 	"github.com/DmitryM7/short-url.git/internal/conf"
 	"github.com/DmitryM7/short-url.git/internal/logger"
+	mock_repository "github.com/DmitryM7/short-url.git/internal/mocks"
 	"github.com/DmitryM7/short-url.git/internal/repository"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var Logger logger.MyLogger
-var Repo repository.StorageService
+var Repo repository.IStorage
 
 func init() { //nolint: gochecknoinits //see chapter "Setting Up Test Data" in https://www.bytesizego.com/blog/init-function-golang#:~:text=Reasons%20to%20Avoid%20Using%20the%20init%20Function%20in%20Go&text=Since%20it%20runs%20automatically%2C%20any,state%20changes%20without%20explicit%20calls
 	conf.ParseFlags()
@@ -134,7 +137,11 @@ func TestActionCreateURL(t *testing.T) {
 }
 
 func TestActionRedirect(t *testing.T) {
-	_, err := Repo.Create("www.ya.ru")
+	ctx := context.Background()
+	lnkRec := repository.LinkRecord{
+		URL: "www.ya.ru",
+	}
+	_, err := Repo.Create(ctx, lnkRec)
 
 	if err != nil {
 		Logger.Fatalln("CAN'T CREATE RECORD")
@@ -271,4 +278,204 @@ func TestActionShorten(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestActionBatch(t *testing.T) {
+	input :=
+		[]RequestShortenBatchUnit{
+			{
+				CorrelationID: "123",
+				OriginalURL:   "www.ya.ru",
+			},
+			{
+				CorrelationID: "123",
+				OriginalURL:   "www.mail.ru",
+			},
+			{
+				CorrelationID: "123",
+				OriginalURL:   "www.rambler.ru",
+			},
+			{
+				CorrelationID: "123",
+				OriginalURL:   "www.rbc.ru",
+			},
+		}
+
+	output := []ResponseShortenBatchUnit{
+		{
+			CorrelationID: "123",
+			ShortURL:      "http://localhost:8080/1qa",
+		},
+		{
+			CorrelationID: "123",
+			ShortURL:      "http://localhost:8080/2qa",
+		},
+		{
+			CorrelationID: "123",
+			ShortURL:      "http://localhost:8080/3qa",
+		},
+		{
+			CorrelationID: "123",
+			ShortURL:      "http://localhost:8080/4qa",
+		},
+	}
+
+	lnkRecIn := []repository.LinkRecord{
+		{
+			CorrelationID: "123",
+			URL:           "www.ya.ru",
+		},
+		{
+			CorrelationID: "123",
+			URL:           "www.mail.ru",
+		},
+		{
+			CorrelationID: "123",
+			URL:           "www.rambler.ru",
+		},
+		{
+			CorrelationID: "123",
+			URL:           "www.rbc.ru",
+		},
+	}
+
+	lnkRecOut := []repository.LinkRecord{
+		{
+			CorrelationID: "123",
+			URL:           "www.ya.ru",
+			ShortURL:      "1qa",
+		},
+		{
+			CorrelationID: "123",
+			URL:           "www.mail.ru",
+			ShortURL:      "2qa",
+		},
+		{
+			CorrelationID: "123",
+			URL:           "www.rambler.ru",
+			ShortURL:      "3qa",
+		},
+		{
+			CorrelationID: "123",
+			URL:           "www.rbc.ru",
+			ShortURL:      "4qa",
+		},
+	}
+	ctx := context.Background()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	storage := mock_repository.NewMockIStorage(ctrl)
+	storage.EXPECT().BatchCreate(gomock.Any(), lnkRecIn).MaxTimes(1).Return(lnkRecOut, nil)
+
+	t.Run("Batch Shorten OK", func(t *testing.T) {
+		b, err := json.Marshal(input)
+
+		require.NoError(t, err, "WRONG PARAM. CAN'T MARSHAL IT")
+
+		sendBody := bytes.NewReader(b)
+
+		r := httptest.NewRequest(http.MethodPost, "/shorten/batch", sendBody)
+		r = r.WithContext(ctx)
+
+		server, err := NewServer(Logger, storage)
+
+		require.NoError(t, err, "CAN'T CREATE SERVER")
+
+		w := httptest.NewRecorder()
+		server.actionBatch(w, r)
+
+		res := w.Result()
+
+		assert.Equal(t, http.StatusCreated, res.StatusCode)
+
+		resBody, err := io.ReadAll(res.Body)
+		require.NoError(t, err, "CAN'T READ BODY")
+		defer res.Body.Close()
+
+		response := []ResponseShortenBatchUnit{}
+		err = json.Unmarshal(resBody, &response)
+		require.NoError(t, err, "CAN'T UNMARSHAL ANSWER")
+
+		assert.Equal(t, output, response)
+	})
+}
+
+func TestActionAPIUrls(t *testing.T) {
+	lnkRecOut := []repository.LinkRecord{
+		{
+			CorrelationID: "123",
+			URL:           "www.ya.ru",
+			ShortURL:      "1qa",
+		},
+		{
+			CorrelationID: "123",
+			URL:           "www.mail.ru",
+			ShortURL:      "2qa",
+		},
+		{
+			CorrelationID: "123",
+			URL:           "www.rambler.ru",
+			ShortURL:      "3qa",
+		},
+		{
+			CorrelationID: "123",
+			URL:           "www.rbc.ru",
+			ShortURL:      "4qa",
+		},
+	}
+
+	output := []repository.LinkRecord{
+		{
+			URL:      "www.ya.ru",
+			ShortURL: "http://localhost:8080/1qa",
+		},
+		{
+			URL:      "www.mail.ru",
+			ShortURL: "http://localhost:8080/2qa",
+		},
+		{
+			URL:      "www.rambler.ru",
+			ShortURL: "http://localhost:8080/3qa",
+		},
+		{
+			URL:      "www.rbc.ru",
+			ShortURL: "http://localhost:8080/4qa",
+		},
+	}
+
+	ctx := context.Background()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	storage := mock_repository.NewMockIStorage(ctrl)
+
+	storage.EXPECT().Urls(gomock.Any(), gomock.Any()).MaxTimes(1).Return(lnkRecOut, nil)
+
+	s0, err := NewServer(Logger, storage)
+
+	assert.NoError(t, err, "CAN'T CREATE SERVER")
+
+	t.Run("API URLS", func(t *testing.T) {
+		r := httptest.NewRequest(http.MethodPost, "/user/urls", nil)
+		r = r.WithContext(ctx)
+		w := httptest.NewRecorder()
+		s0.actionAPIUrls(w, r)
+
+		res := w.Result()
+
+		body, err := io.ReadAll(res.Body)
+		assert.NoError(t, err, "CAN'T READ BODY")
+		defer res.Body.Close()
+
+		response := []repository.LinkRecord{}
+
+		err = json.Unmarshal(body, &response)
+
+		assert.NoError(t, err, "CAN'T UNMARSHAL BODY")
+
+		assert.Equal(t, output, response)
+	})
 }

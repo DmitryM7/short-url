@@ -4,10 +4,12 @@ import (
 	"go.uber.org/zap"
 )
 
+// MyLogger - логгер
 type MyLogger struct {
 	*zap.SugaredLogger
 }
 
+// NewLogger - конструктор логгера
 func NewLogger() MyLogger {
 	var (
 		logger    *zap.Logger

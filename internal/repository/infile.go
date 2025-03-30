@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -10,12 +11,15 @@ import (
 
 const defFilePerm os.FileMode = 0644
 
+// InFileStorage - файловое хранилище
 type InFileStorage struct {
 	InMemoryStorage
 	SavePath string
 }
 
+// NewInFileStorage - конструктор файлового хранилища
 func NewInFileStorage(lg logger.MyLogger, exportFile string) (*InFileStorage, error) {
+	lg.Infoln("CREATE NEW IN FILE STORAGE")
 	inmem, err := NewInMemoryStorage(lg)
 	if err != nil {
 		return &InFileStorage{SavePath: exportFile}, err
@@ -26,8 +30,9 @@ func NewInFileStorage(lg logger.MyLogger, exportFile string) (*InFileStorage, er
 	}, nil
 }
 
-func (r *InFileStorage) Create(lnkRec LinkRecord) error {
-	err := r.InMemoryStorage.Create(lnkRec)
+// Create - создает короткую ссылку
+func (r *InFileStorage) Create(ctx context.Context, lnkRec LinkRecord) error {
+	err := r.InMemoryStorage.Create(ctx, lnkRec)
 
 	if err != nil {
 		return err
@@ -42,10 +47,12 @@ func (r *InFileStorage) Create(lnkRec LinkRecord) error {
 	return nil
 }
 
+// SetSavePath - устанавливает путь к файлу в который выгружается хранилище
 func (r *InFileStorage) SetSavePath(p string) {
 	r.SavePath = p
 }
 
+// Unload - выгружает данные из хранилища в файл
 func (r *InFileStorage) Unload() (int, error) {
 	j, err := json.Marshal(r.Repo)
 
@@ -65,6 +72,7 @@ func (r *InFileStorage) Unload() (int, error) {
 	return file.Write(j)
 }
 
+// Load - загружает хранилище из файла
 func (r *InFileStorage) Load() error {
 	file, err := os.OpenFile(r.SavePath, os.O_RDONLY|os.O_CREATE, defFilePerm)
 
@@ -96,6 +104,7 @@ func (r *InFileStorage) Load() error {
 	return nil
 }
 
+// Ping - не испльзуется. Сделан для совместимости.
 func (r *InFileStorage) Ping() bool {
 	return true
 }

@@ -1,19 +1,29 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/DmitryM7/short-url.git/internal/logger"
 )
 
+// ErrRecWasDelete - ошибка которое указывает на то, что запись была удалена
+var ErrRecWasDelete = errors.New("RECORD WAS DELETED")
+
+// Типы хранилища
 const (
-	DBType   = "db"
-	MemType  = "mem"
+	// DBType - хранилище в СУБД
+	DBType = "db"
+	// MemType - хранилище в памяти
+	MemType = "mem"
+	// FileType - хранилище в файле
 	FileType = "file"
 )
 
+// Тип хранилища
 type StorageType string
 
+// Конфигурация хранилища
 type StorageConfig struct {
 	StorageType StorageType
 	Logger      logger.MyLogger
@@ -21,10 +31,12 @@ type StorageConfig struct {
 	FilePath    string
 }
 
-func NewStorage(cfg StorageConfig) (IStorage, error) {
+// StorageConfig - фабрика по созданию хранилища
+func NewStorage(cfg StorageConfig) (IRepo, error) {
 	switch cfg.StorageType {
 	case DBType:
 		return NewInDBStorage(cfg.Logger, cfg.DatabaseDSN)
+
 	case FileType:
 		repo, err := NewInFileStorage(cfg.Logger, cfg.FilePath)
 		if err != nil {

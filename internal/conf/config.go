@@ -5,13 +5,19 @@ import (
 	"os"
 )
 
+// Определяет параметры подключения к хранилищу
 var (
-	BndAdd   string
-	RetAdd   string
+	// BndAdd - адрес на котором будет размещаться сервер
+	BndAdd string
+	// RetAdd - адрес который будет присоединяться к результируюему ответу
+	RetAdd string
+	// FilePath - путь к файлу в котором будет храниться база с ссылками
 	FilePath string
-	DSN      string
+	// DSN - строка подключения к СУБД
+	DSN string
 )
 
+// ParseFlags - парсит опции параметров запуска
 func ParseFlags() {
 	flag.StringVar(&BndAdd, "a", "localhost:8080", "host where server is run")
 	flag.StringVar(&RetAdd, "b", "http://localhost:8080", "host that add to short link")
@@ -19,6 +25,7 @@ func ParseFlags() {
 	flag.StringVar(&DSN, "d", "", "database dsn")
 }
 
+// ParseEnv - парсит опции из переменных окружения
 func ParseEnv() {
 	if env := os.Getenv("SERVER_ADDRESS"); env != "" {
 		BndAdd = env

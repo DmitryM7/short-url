@@ -14,7 +14,7 @@ import (
 	"github.com/DmitryM7/short-url.git/internal/repository"
 )
 
-func main() {
+func Examplemain() {
 	lg := logger.NewLogger()
 
 	lg.Infoln("RUN...")
