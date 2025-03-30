@@ -44,8 +44,8 @@ func ExampleNewStorageService() {
 		lg.Errorln(err)
 	}
 
-	short_url, err := storage.Create(ctx, LinkRecord{UserID: 1, URL: "www.ya.ru"})
+	shortURL, err := storage.Create(ctx, LinkRecord{UserID: 1, URL: "www.ya.ru"})
 
-	fmt.Println(short_url)
+	fmt.Println(shortURL)
 
 }
