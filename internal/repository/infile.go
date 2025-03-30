@@ -30,6 +30,7 @@ func NewInFileStorage(lg logger.MyLogger, exportFile string) (*InFileStorage, er
 	}, nil
 }
 
+// Create - создает короткую ссылку
 func (r *InFileStorage) Create(ctx context.Context, lnkRec LinkRecord) error {
 	err := r.InMemoryStorage.Create(ctx, lnkRec)
 
@@ -46,6 +47,7 @@ func (r *InFileStorage) Create(ctx context.Context, lnkRec LinkRecord) error {
 	return nil
 }
 
+// SetSavePath - сохраняет хранилище в файл
 func (r *InFileStorage) SetSavePath(p string) {
 	r.SavePath = p
 }
@@ -69,6 +71,7 @@ func (r *InFileStorage) Unload() (int, error) {
 	return file.Write(j)
 }
 
+// Load - загружает хранилище из файла
 func (r *InFileStorage) Load() error {
 	file, err := os.OpenFile(r.SavePath, os.O_RDONLY|os.O_CREATE, defFilePerm)
 
@@ -100,6 +103,7 @@ func (r *InFileStorage) Load() error {
 	return nil
 }
 
+// Ping - не испльзуется. Сделан для совместимости.
 func (r *InFileStorage) Ping() bool {
 	return true
 }

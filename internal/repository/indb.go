@@ -9,27 +9,24 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-type (
-	// BatchDelMessage - структура обмена информацией между гоурутинами при пакетном удалении
-	BatchDelMessage struct {
-		Person int
-		URL    string
-	}
+// BatchDelMessage - структура обмена информацией между гоурутинами при пакетном удалении
+type BatchDelMessage struct {
+	Person int
+	URL    string
+}
 
-	// InDBStorage - хранилище в памяти
-	InDBStorage struct {
-		Logger      logger.MyLogger
-		DatabaseDSN string
-		db          *sql.DB
+// InDBStorage - хранилище в памяти
+type InDBStorage struct {
+	Logger      logger.MyLogger
+	DatabaseDSN string
+	db          *sql.DB
 
-		cdata chan BatchDelMessage
-		cend  chan int
-		tx    *sql.Tx
-	}
-)
+	cdata chan BatchDelMessage
+	cend  chan int
+	tx    *sql.Tx
+}
 
 // NewInDBStorage - конструктор хранилища в памяти
-
 func NewInDBStorage(lg logger.MyLogger, dsn string) (*InDBStorage, error) {
 	lg.Infoln("CREATE NEW DB STORAGE")
 	st := InDBStorage{
@@ -103,6 +100,7 @@ func (l *InDBStorage) createSchema() error {
 	return nil
 }
 
+// Get - возвращает ссылку по ее короткому значению
 func (l *InDBStorage) Get(ctx context.Context, url string) (string, error) {
 	var id int
 	var shorturl string
@@ -121,6 +119,7 @@ func (l *InDBStorage) Get(ctx context.Context, url string) (string, error) {
 	return shorturl, err
 }
 
+// GetByURL - возращает короткую ссылку по ее длинному значению, для ранее сохраненной ссылки
 func (l *InDBStorage) GetByURL(ctx context.Context, url string) (string, error) {
 	var shorturl string
 	row := l.db.QueryRowContext(ctx, "SELECT shorturl FROM repo WHERE url=$1", url)
@@ -128,6 +127,7 @@ func (l *InDBStorage) GetByURL(ctx context.Context, url string) (string, error) 
 	return shorturl, err
 }
 
+// Create - создает короткую ссылку
 func (l *InDBStorage) Create(ctx context.Context, lnkRec LinkRecord) error {
 	_, err := l.db.ExecContext(ctx, `INSERT INTO repo (userid,shorturl,url) VALUES($1,$2,$3)`,
 		lnkRec.UserID,
@@ -140,6 +140,7 @@ func (l *InDBStorage) Create(ctx context.Context, lnkRec LinkRecord) error {
 	return nil
 }
 
+// BatchCreate - пакетное создание коротких ссылок
 func (l *InDBStorage) BatchCreate(ctx context.Context, lnkRecs []LinkRecord) error {
 	tx, err := l.db.Begin()
 
@@ -164,6 +165,7 @@ func (l *InDBStorage) BatchCreate(ctx context.Context, lnkRecs []LinkRecord) err
 	return tx.Commit()
 }
 
+// Ping - проверка соединения с БД
 func (l *InDBStorage) Ping() bool {
 	if err := l.db.PingContext(context.Background()); err != nil {
 		return false
@@ -172,6 +174,7 @@ func (l *InDBStorage) Ping() bool {
 	return true
 }
 
+// Urls - возращает все сохраненные для пользователя ссылки
 func (l *InDBStorage) Urls(ctx context.Context, userid int) ([]LinkRecord, error) {
 	res := []LinkRecord{}
 	rows, err := l.db.QueryContext(ctx,
@@ -200,6 +203,7 @@ func (l *InDBStorage) Urls(ctx context.Context, userid int) ([]LinkRecord, error
 	return res, nil
 }
 
+// FlowDel - потоковое удаление
 func (l *InDBStorage) FlowDel(ctx context.Context) {
 	var (
 		err, err0 error
@@ -258,6 +262,7 @@ func (l *InDBStorage) FlowDel(ctx context.Context) {
 	}
 }
 
+// BatchDel - пакетное удаление
 func (l *InDBStorage) BatchDel(ctx context.Context, userid int, urls []string) {
 	for _, url := range urls {
 		message := BatchDelMessage{

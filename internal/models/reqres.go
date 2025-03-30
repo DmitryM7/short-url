@@ -8,6 +8,7 @@ import (
 	"github.com/DmitryM7/short-url.git/internal/logger"
 )
 
+// Структуры для обмена данными в мидлеваре
 type (
 	CustomResponseWriter struct {
 		http.ResponseWriter
@@ -35,6 +36,9 @@ func (r *CustomResponseWriter) isContentTypeNeedZip() bool {
 	}
 	return needGZip
 }
+
+// Write - переопределяет стандартный метод Write.
+// ДОбавляет логирование и сжатие
 func (r *CustomResponseWriter) Write(b []byte) (int, error) {
 	var (
 		size int
@@ -61,6 +65,7 @@ func (r *CustomResponseWriter) Write(b []byte) (int, error) {
 	return size, err
 }
 
+// WriteHeader - переопределяет стандартный метод записи
 func (r *CustomResponseWriter) WriteHeader(statusCode int) {
 	if r.NeedGZip && r.isContentTypeNeedZip() {
 		r.Header().Set("Content-encoding", "gzip")

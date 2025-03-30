@@ -2,6 +2,7 @@ package repository
 
 import "context"
 
+// Интерфейс взаимодействия с хранилищем данных
 type IStorage interface {
 	Create(ctx context.Context, lnkRec LinkRecord) (string, error)
 	Get(ctx context.Context, shorturl string) (string, error)

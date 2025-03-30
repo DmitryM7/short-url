@@ -26,6 +26,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// Содержит структуры для обмена сообщениями между методами
 type (
 	// Request - структура запроса для создания короткой ссылки путем направления json запроса
 	Request struct {
@@ -48,16 +49,16 @@ type (
 		ShortURL      string `json:"short_url"`
 	}
 
-	// MyServer - сервер обработки запросов
-	MyServer struct {
-		Logger        logger.MyLogger
-		Repo          repository.IStorage
-		userIDCounter int
-		secretKey     string
-	}
-
 	contextKeyType string
 )
+
+// MyServer - сервер обработки запросов
+type MyServer struct {
+	Logger        logger.MyLogger
+	Repo          repository.IStorage
+	userIDCounter int
+	secretKey     string
+}
 
 // CookieLiveMinutes - время жизни авторизационного куки в минутах
 const CookieLiveMinutes = 25
@@ -552,6 +553,7 @@ func (s *MyServer) actionStart(next http.Handler) http.Handler {
 	return http.HandlerFunc(f)
 }
 
+// Profiler - присоденияет профайлер к Chi
 func Profiler() http.Handler {
 	r := chi.NewRouter()
 
@@ -579,6 +581,7 @@ func Profiler() http.Handler {
 	return r
 }
 
+// NewServer - конструктор сервера
 func NewServer(log logger.MyLogger, repo repository.IStorage) (*MyServer, error) {
 	b := make([]byte, 2)
 	_, err := rand.Read(b)
@@ -594,6 +597,7 @@ func NewServer(log logger.MyLogger, repo repository.IStorage) (*MyServer, error)
 	}, nil
 }
 
+// NewRouter - конструктор роутера
 func NewRouter(log logger.MyLogger, repo repository.IStorage) *chi.Mux {
 	R := chi.NewRouter()
 	server, err := NewServer(log, repo)

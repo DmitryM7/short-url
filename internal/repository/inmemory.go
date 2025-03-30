@@ -12,12 +12,14 @@ const (
 	rLength int64 = 100
 )
 
+// InMemoryStorage - хранилище в памяти
 type InMemoryStorage struct {
 	Repo   map[string]string
 	Logger logger.MyLogger
 	m      *sync.RWMutex
 }
 
+// NewInMemoryStorage - конструктор хранилища в памяти
 func NewInMemoryStorage(lg logger.MyLogger) (*InMemoryStorage, error) {
 	lg.Infoln("CREATE NEW IN MEMORE STORAGE")
 
@@ -28,6 +30,7 @@ func NewInMemoryStorage(lg logger.MyLogger) (*InMemoryStorage, error) {
 	}, nil
 }
 
+// Create - создает короткую ссылку
 func (r *InMemoryStorage) Create(ctx context.Context, lnkRec LinkRecord) error {
 	r.m.Lock()
 	r.Repo[lnkRec.ShortURL] = lnkRec.URL
@@ -35,6 +38,7 @@ func (r *InMemoryStorage) Create(ctx context.Context, lnkRec LinkRecord) error {
 	return nil
 }
 
+// BatchCreate - пакетное создание ссылок
 func (r *InMemoryStorage) BatchCreate(ctx context.Context, lnkRecs []LinkRecord) error {
 	for _, v := range lnkRecs {
 		err := r.Create(ctx, v)
@@ -47,6 +51,7 @@ func (r *InMemoryStorage) BatchCreate(ctx context.Context, lnkRecs []LinkRecord)
 	return nil
 }
 
+// Get - возращает длинную ссылку по короткой
 func (r *InMemoryStorage) Get(ctx context.Context, shorturl string) (string, error) {
 	r.m.RLock()
 	l, err := r.Repo[shorturl]
@@ -59,6 +64,7 @@ func (r *InMemoryStorage) Get(ctx context.Context, shorturl string) (string, err
 	return l, nil
 }
 
+// GetByURL - возращает короткую ссылку по длинной из хранилища
 func (r *InMemoryStorage) GetByURL(ctx context.Context, url string) (string, error) {
 	r.m.RLock()
 	for k, v := range r.Repo {
@@ -71,10 +77,12 @@ func (r *InMemoryStorage) GetByURL(ctx context.Context, url string) (string, err
 	return "", fmt.Errorf("NO URL IN REPO")
 }
 
+// Ping - не используется. Для совместимости.
 func (r *InMemoryStorage) Ping() bool {
 	return true
 }
 
+// Urls - возращает ссылки для пользователя
 func (r *InMemoryStorage) Urls(ctx context.Context, userid int) ([]LinkRecord, error) {
 	res := []LinkRecord{}
 	r.m.RLock()
@@ -89,6 +97,7 @@ func (r *InMemoryStorage) Urls(ctx context.Context, userid int) ([]LinkRecord, e
 	return res, nil
 }
 
+// BatchDel - не используется
 func (r *InMemoryStorage) BatchDel(ctx context.Context, userid int, ursl []string) {
 
 }
