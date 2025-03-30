@@ -11,11 +11,13 @@ import (
 
 const defFilePerm os.FileMode = 0644
 
+// InFileStorage - файловое хранилище
 type InFileStorage struct {
 	InMemoryStorage
 	SavePath string
 }
 
+// NewInFileStorage - конструктор файлового хранилища
 func NewInFileStorage(lg logger.MyLogger, exportFile string) (*InFileStorage, error) {
 	lg.Infoln("CREATE NEW IN FILE STORAGE")
 	inmem, err := NewInMemoryStorage(lg)

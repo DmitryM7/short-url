@@ -10,11 +10,13 @@ import (
 )
 
 type (
+	// BatchDelMessage - структура обмена информацией между гоурутинами при пакетном удалении
 	BatchDelMessage struct {
 		Person int
 		URL    string
 	}
 
+	// InDBStorage - хранилище в памяти
 	InDBStorage struct {
 		Logger      logger.MyLogger
 		DatabaseDSN string
@@ -25,6 +27,8 @@ type (
 		tx    *sql.Tx
 	}
 )
+
+// NewInDBStorage - конструктор хранилища в памяти
 
 func NewInDBStorage(lg logger.MyLogger, dsn string) (*InDBStorage, error) {
 	lg.Infoln("CREATE NEW DB STORAGE")

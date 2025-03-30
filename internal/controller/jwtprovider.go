@@ -7,6 +7,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
+// Сущности для создания токена
 type (
 	// Claims - сущность для создания авторизационных данных
 	Claims struct {
@@ -29,6 +30,7 @@ func NewJwtProvider(tokenexp time.Duration, seckey string) JwtProvider {
 	}
 }
 
+// GetStr - создает токен по секретному ключу и  уникальному номеру пользователя
 func (j *JwtProvider) GetStr(secretKey string, uid int) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -45,6 +47,7 @@ func (j *JwtProvider) GetStr(secretKey string, uid int) (string, error) {
 	return tokenString, nil
 }
 
+// GetUserID - возвращает уникальный номер пользователя из токена
 func (j *JwtProvider) GetUserID(tokenString string) (int, error) {
 	// создаём экземпляр структуры с утверждениями
 	claims := &Claims{}
