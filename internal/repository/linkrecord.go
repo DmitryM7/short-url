@@ -1,5 +1,6 @@
 package repository
 
+// Структура для хранения информации о ссылках
 type LinkRecord struct {
 	ID            int    `json:"-"`
 	UserID        int    `json:"-"`

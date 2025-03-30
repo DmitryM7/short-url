@@ -47,11 +47,12 @@ func (r *InFileStorage) Create(ctx context.Context, lnkRec LinkRecord) error {
 	return nil
 }
 
-// SetSavePath - сохраняет хранилище в файл
+// SetSavePath - устанавливает путь к файлу в который выгружается хранилище
 func (r *InFileStorage) SetSavePath(p string) {
 	r.SavePath = p
 }
 
+// Unload - выгружает данные из хранилища в файл
 func (r *InFileStorage) Unload() (int, error) {
 	j, err := json.Marshal(r.Repo)
 
