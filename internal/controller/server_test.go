@@ -281,7 +281,6 @@ func TestActionShorten(t *testing.T) {
 }
 
 func TestActionBatch(t *testing.T) {
-
 	input :=
 		[]RequestShortenBatchUnit{
 			{
@@ -400,13 +399,10 @@ func TestActionBatch(t *testing.T) {
 		require.NoError(t, err, "CAN'T UNMARSHAL ANSWER")
 
 		assert.Equal(t, output, response)
-
 	})
-
 }
 
 func TestActionAPIUrls(t *testing.T) {
-
 	lnkRecOut := []repository.LinkRecord{
 		{
 			CorrelationID: "123",
@@ -481,7 +477,5 @@ func TestActionAPIUrls(t *testing.T) {
 		assert.NoError(t, err, "CAN'T UNMARSHAL BODY")
 
 		assert.Equal(t, output, response)
-
 	})
-
 }

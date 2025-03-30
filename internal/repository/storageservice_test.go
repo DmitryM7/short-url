@@ -8,7 +8,6 @@ import (
 )
 
 func BenchmarkGet(b *testing.B) {
-
 	lg := logger.NewLogger()
 	repoConf := StorageConfig{Logger: lg}
 	repoConf.StorageType = FileType
@@ -23,7 +22,10 @@ func BenchmarkGet(b *testing.B) {
 	ctx := context.Background()
 
 	for i := 0; i < b.N; i++ {
-		storage.Get(ctx, "qwer")
-	}
+		_, err := storage.Get(ctx, "qwer")
 
+		if err != nil {
+			lg.Errorln(err)
+		}
+	}
 }

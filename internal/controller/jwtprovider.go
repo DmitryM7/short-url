@@ -8,17 +8,20 @@ import (
 )
 
 type (
+	// Claims - сущность для создания авторизационных данных
 	Claims struct {
 		jwt.RegisteredClaims
 		UserID int
 	}
 
+	// JwtProvider - сущность с информацией о JWT ключе
 	JwtProvider struct {
 		TokenExpTime time.Duration
 		SecretKey    string
 	}
 )
 
+// NewJwtProvider - конструктор для создания JWT
 func NewJwtProvider(tokenexp time.Duration, seckey string) JwtProvider {
 	return JwtProvider{
 		TokenExpTime: tokenexp,

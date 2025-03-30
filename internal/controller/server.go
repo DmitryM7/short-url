@@ -27,24 +27,28 @@ import (
 )
 
 type (
+	// Request - структура запроса для создания короткой ссылки путем направления json запроса
 	Request struct {
 		URL string `json:"url"`
 	}
-
+	// Response - структура запроса для создания короткой ссылки путем направления json запроса
 	Response struct {
 		Result string `json:"result"`
 	}
 
+	// RequestShortenBatchUnit - структура запроса для создания коротких ссылок в пакетном режиме
 	RequestShortenBatchUnit struct {
 		CorrelationID string `json:"correlation_id"`
 		OriginalURL   string `json:"original_url"`
 	}
 
+	// ResponseShortenBatchUnit - структура ответа метода создания коротких ссылок в пакетном режиме
 	ResponseShortenBatchUnit struct {
 		CorrelationID string `json:"correlation_id"`
 		ShortURL      string `json:"short_url"`
 	}
 
+	// MyServer - сервер обработки запросов
 	MyServer struct {
 		Logger        logger.MyLogger
 		Repo          repository.IStorage
