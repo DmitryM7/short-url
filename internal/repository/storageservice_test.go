@@ -36,6 +36,7 @@ func ExampleNewStorageService() {
 	repoConf := StorageConfig{Logger: lg}
 	repoConf.StorageType = FileType
 	repoConf.FilePath = "./repo.json"
+	ctx := context.Background()
 
 	storage, err := NewStorageService(repoConf)
 
