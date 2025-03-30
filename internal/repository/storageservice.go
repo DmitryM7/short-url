@@ -6,18 +6,30 @@ import (
 	"hash/crc32"
 )
 
-type StorageService struct {
-	storage IStorage
-}
+type (
+	IRepo interface {
+		Create(ctx context.Context, lnkRec LinkRecord) error
+		Get(ctx context.Context, shorturl string) (string, error)
+		GetByURL(ctx context.Context, url string) (string, error)
+		BatchCreate(ctx context.Context, lnkRecs []LinkRecord) error
+		Urls(ctx context.Context, userid int) ([]LinkRecord, error)
+		BatchDel(ctx context.Context, userid int, urls []string)
+		Ping() bool
+	}
 
-func NewStorageService(cfg StorageConfig) (StorageService, error) {
+	StorageService struct {
+		storage IRepo
+	}
+)
+
+func NewStorageService(cfg StorageConfig) (IStorage, error) {
 	repo, err := NewStorage(cfg)
 
 	if err != nil {
-		return StorageService{}, err
+		return &StorageService{}, err
 	}
 
-	return StorageService{storage: repo}, nil
+	return &StorageService{storage: repo}, nil
 }
 
 func (s *StorageService) BatchCreate(ctx context.Context, lnkRecs []LinkRecord) ([]LinkRecord, error) {

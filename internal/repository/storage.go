@@ -24,7 +24,7 @@ type StorageConfig struct {
 	FilePath    string
 }
 
-func NewStorage(cfg StorageConfig) (IStorage, error) {
+func NewStorage(cfg StorageConfig) (IRepo, error) {
 	switch cfg.StorageType {
 	case DBType:
 		return NewInDBStorage(cfg.Logger, cfg.DatabaseDSN)

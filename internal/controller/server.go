@@ -47,7 +47,7 @@ type (
 
 	MyServer struct {
 		Logger        logger.MyLogger
-		Repo          repository.StorageService
+		Repo          repository.IStorage
 		userIDCounter int
 		secretKey     string
 	}
@@ -575,7 +575,7 @@ func Profiler() http.Handler {
 	return r
 }
 
-func NewServer(log logger.MyLogger, repo repository.StorageService) (*MyServer, error) {
+func NewServer(log logger.MyLogger, repo repository.IStorage) (*MyServer, error) {
 	b := make([]byte, 2)
 	_, err := rand.Read(b)
 	if err != nil {
@@ -583,15 +583,14 @@ func NewServer(log logger.MyLogger, repo repository.StorageService) (*MyServer, 
 	}
 
 	return &MyServer{
-		Logger:    log,
-		Repo:      repo,
-		secretKey: "KEY_FOR_SECRET",
-		//userIDCounter: int(time.Now().Unix()),
+		Logger:        log,
+		Repo:          repo,
+		secretKey:     "KEY_FOR_SECRET",
 		userIDCounter: int(b[0] + b[1]),
 	}, nil
 }
 
-func NewRouter(log logger.MyLogger, repo repository.StorageService) *chi.Mux {
+func NewRouter(log logger.MyLogger, repo repository.IStorage) *chi.Mux {
 	R := chi.NewRouter()
 	server, err := NewServer(log, repo)
 
